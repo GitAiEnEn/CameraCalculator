@@ -1,0 +1,510 @@
+/**
+ * app.js
+ * 相机拍摄计算器 - 编排层（薄视图层）
+ *
+ * 职责：
+ *  - 读取输入控件 → Store.update() 写入 data model
+ *  - 监听 Store 变化 → 渲染结果卡片与各视图
+ *  - 移动端折叠、刻度线、语言切换、视图重置
+ *
+ * 原则：所有数据（原始输入 + 派生值）都由 data.js 统一管理，
+ *       组件只负责渲染，不各自计算/持有数据副本。
+ */
+
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+
+  const el = {
+    sensor: $('sensor'), sensorInfo: $('sensorInfo'),
+    focal: $('focal'), focalRange: $('focalRange'),
+    aperture: $('aperture'), apertureRange: $('apertureRange'),
+    distance: $('distance'), distanceRange: $('distanceRange'),
+    subjectType: $('subjectType'), orientation: $('orientation'),
+    orientationWrap: $('orientationWrap'), subjectSizeGroup: $('subjectSizeGroup'),
+    personHint: $('personHint'),
+    subjectWidth: $('subjectWidth'), subjectHeight: $('subjectHeight'),
+    eyeHeight: $('eyeHeight'),
+    cocPreset: $('cocPreset'), cocValue: $('cocValue'),
+    bgDistance: $('bgDistance'), bgLightSize: $('bgLightSize'),
+    resetBtn: $('resetBtn'),
+
+    rEquivFocal: $('rEquivFocal'), rFov: $('rFov'),
+    rMagnification: $('rMagnification'), rFovWidth: $('rFovWidth'), rFovHeight: $('rFovHeight'),
+    rImageWidth: $('rImageWidth'), rImageHeight: $('rImageHeight'),
+    imageWidthCard: $('imageWidthCard'), imageHeightCard: $('imageHeightCard'),
+    personImagingCard: $('personImagingCard'), rPersonImaging: $('rPersonImaging'),
+
+    rDofTotal: $('rDofTotal'), rDofNear: $('rDofNear'), rDofFar: $('rDofFar'),
+    rDofRange: $('rDofRange'), rHyperfocal: $('rHyperfocal'), rEntrancePupil: $('rEntrancePupil'),
+    dofConclusion: $('dofConclusion'),
+
+    rBokehSensor: $('rBokehSensor'), rBokehRatio: $('rBokehRatio'),
+    rBokehPixels: $('rBokehPixels'), rBokehBlur: $('rBokehBlur'),
+
+    personSceneWrap: $('personSceneWrap'), topViewWrap: $('topViewWrap'), sideViewWrap: $('sideViewWrap'),
+    personCanvas: $('personCanvas'), sceneTopCanvas: $('sceneTopCanvas'), sceneSideCanvas: $('sceneSideCanvas'),
+    dofCanvas: $('dofCanvas'), bokehCanvas: $('bokehCanvas'),
+
+    resetPortraitBtn: $('resetPortraitBtn'), resetTopBtn: $('resetTopBtn'),
+    resetSideBtn: $('resetSideBtn'), resetDofBtn: $('resetDofBtn'),
+    compLockBtn: $('compLockBtn'), compLockIcon: $('compLockIcon')
+  };
+
+  const DEFAULTS = {
+    focal: 50, aperture: 4, distance: 3,
+    subjectType: 'person', orientation: 'landscape',
+    subjectWidth: 0.6, subjectHeight: 1.7,
+    cocPreset: 'normal', cocValue: 0.030,
+    bgDistance: 10, bgLightSize: 0,
+    eyeHeight: 1.6
+  };
+
+  const LOG = {
+    focal:   { min: 10,  center: 50, max: 600 },
+    aperture:{ min: 0.7, center: 4,  max: 32 },
+    distance:{ min: 0.1, center: 3,  max: 50 }
+  };
+
+  const store = Store;
+  const state = Store.state;
+
+  let syncingCoC = false;
+  let lastDistanceM = DEFAULTS.distance;
+
+  // ---------- 视图实例 ----------
+  const portraitView = new PortraitView(el.personCanvas);
+  const topView = new CameraDistanceView(el.sceneTopCanvas, 'top', false);
+  const sideView = new CameraDistanceView(el.sceneSideCanvas, 'side', true);
+  const fieldView = new FieldVisualizationView(el.dofCanvas);
+  const bokehView = new BokehPreview(el.bokehCanvas);
+
+  // ---------- 格式工具（仅用于展示） ----------
+  function fmt(num, digits) {
+    if (!isFinite(num)) return '∞';
+    if (num === 0) return '0';
+    const abs = Math.abs(num);
+    if (abs >= 1000) return num.toFixed(0);
+    if (abs >= 100) return num.toFixed(1);
+    if (abs >= 1) return num.toFixed(digits != null ? digits : 2);
+    if (abs >= 0.01) return num.toFixed(3);
+    return num.toExponential(2);
+  }
+  function fmtDistance(mm) {
+    if (!isFinite(mm)) return '∞';
+    const m = mm / 1000;
+    if (m >= 1000) return (m / 1000).toFixed(2) + ' km';
+    if (m >= 1) return m.toFixed(2) + ' m';
+    return (m * 100).toFixed(1) + ' cm';
+  }
+
+  // ---------- CoC 辅助 ----------
+  function applyPresetToCoC(sensor) {
+    const preset = el.cocPreset.value;
+    if (preset === 'normal' || preset === 'loose' || preset === 'strict') {
+      syncingCoC = true;
+      el.cocValue.value = cocForPreset(sensor, preset).toFixed(3);
+      syncingCoC = false;
+    }
+  }
+
+  // ---------- 读取输入控件 → data model ----------
+  function applyRawInputs() {
+    const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
+    if (!sensor) return;
+
+    const focal = parseFloat(el.focal.value);
+    const aperture = parseFloat(el.aperture.value);
+    const distanceM = parseFloat(el.distance.value);
+    const subjectWidthRaw = parseFloat(el.subjectWidth.value);
+    const subjectHeightRaw = parseFloat(el.subjectHeight.value);
+    const bgDistanceM = parseFloat(el.bgDistance.value);
+    const bgLightSizeM = parseFloat(el.bgLightSize.value);
+    const cocValue = parseFloat(el.cocValue.value);
+    const eyeHeightM = parseFloat(el.eyeHeight.value);
+
+    store.update({
+      sensor,
+      focal: isFinite(focal) ? focal : 1,
+      aperture: isFinite(aperture) ? aperture : 1,
+      distanceM: isFinite(distanceM) ? distanceM : 0.1,
+      orientation: el.orientation.value,
+      mode: el.subjectType.value,
+      subjectWidthRaw: isFinite(subjectWidthRaw) ? subjectWidthRaw : 0,
+      subjectHeightRaw: isFinite(subjectHeightRaw) ? subjectHeightRaw : 0,
+      bgDistanceM: isFinite(bgDistanceM) ? bgDistanceM : 0,
+      bgLightSizeM: isFinite(bgLightSizeM) ? bgLightSizeM : 0,
+      cocPreset: el.cocPreset.value,
+      cocValue: isFinite(cocValue) ? cocValue : 0.030,
+      eyeHeightM: isFinite(eyeHeightM) ? eyeHeightM : 1.6,
+      heightM: isFinite(eyeHeightM) ? eyeHeightM : 1.6
+    });
+  }
+
+  // ---------- 同步背景距离（跟随对焦距离变化） ----------
+  function syncBgDistance() {
+    const nd = parseFloat(el.distance.value);
+    if (!isFinite(nd)) return;
+    const delta = nd - lastDistanceM;
+    if (delta !== 0) {
+      el.bgDistance.value = Math.max(0.01, (parseFloat(el.bgDistance.value) || 0) + delta).toFixed(2);
+    }
+    lastDistanceM = nd;
+  }
+
+  function onDistanceChange() {
+    syncBgDistance();
+    applyRawInputs();
+  }
+
+  // ---------- 构图锁定 ----------
+  function setCompLock(locked) {
+    let lockFrameM = null;
+    if (locked && state.sensor) {
+      const effSensor = state.orientation === 'portrait' ? state.sensor.w : state.sensor.h;
+      lockFrameM = effSensor * state.distanceM / (state.focal || 1);
+    }
+    state.fovLock = locked;
+    state.lockFrameM = lockFrameM;
+    store.commit();
+  }
+
+  // ---------- 渲染：结果卡片（全部从 state 读取） ----------
+  function renderResultCards() {
+    const s = state;
+    if (!s.sensor || !s.dof) return;
+
+    if (s.sensor) {
+      const diag = sensorDiagonal(s.sensor);
+      el.sensorInfo.textContent = I18N[currentLang].sensorInfo(
+        s.sensor.w, s.sensor.h, diag.toFixed(2), s.crop.toFixed(2), s.coc.toFixed(3)
+      );
+    }
+
+    el.rEquivFocal.textContent = fmt(s.equivFocal, 1);
+    el.rFov.textContent = `${s.fovHdeg.toFixed(1)}° × ${s.fovVdeg.toFixed(1)}°`;
+    el.rMagnification.textContent = s.m < 0.001 ? s.m.toExponential(2) : s.m.toFixed(4);
+    el.rFovWidth.textContent = fmt(s.fovWidthM, 2);
+    el.rFovHeight.textContent = fmt(s.fovHeightM, 2);
+    el.rImageWidth.textContent = `${fmt(s.m * s.subjectW * 1000, 2)} mm (${((s.m * s.subjectW * 1000) / s.sensor.w * 100).toFixed(1)}%)`;
+    el.rImageHeight.textContent = `${fmt(s.m * s.subjectH * 1000, 2)} mm (${((s.m * s.subjectH * 1000) / s.sensor.h * 100).toFixed(1)}%)`;
+
+    if (s.mode === 'person') {
+      el.rPersonImaging.textContent = `${fmt(s.m * s.subjectH * 1000, 2)} mm (${((s.m * s.subjectH * 1000) / s.sensor.h * 100).toFixed(1)}%)`;
+    }
+
+    el.rDofTotal.textContent = fmtDistance(s.dof.total);
+    el.rDofNear.textContent = fmtDistance(s.dof.front);
+    el.rDofFar.textContent = fmtDistance(s.dof.back);
+    el.rDofRange.textContent = `${fmtDistance(s.dof.near)} ~ ${fmtDistance(s.dof.far)}`;
+    el.rHyperfocal.textContent = fmtDistance(s.dof.hyperfocal);
+    el.rEntrancePupil.textContent = fmt(s.entrancePupilMm, 2);
+    el.dofConclusion.textContent = t(Calc.dofConclusion(s.dof.total));
+
+    const bokehPx = s.bokehMm / pixelPitch(s.sensor);
+    el.rBokehSensor.textContent = fmt(s.bokehMm, 3);
+    el.rBokehRatio.textContent = ((s.bokehMm / s.sensor.w) * 100).toFixed(2);
+    el.rBokehPixels.textContent = bokehPx >= 1000 ? bokehPx.toFixed(0) : bokehPx.toFixed(1);
+    el.rBokehBlur.textContent = `${s.bokehBlurLevel} · ${I18N[currentLang].blurLevels[s.bokehBlurLevel - 1]}`;
+
+    // 输入控件回写（数据模型 → 输入框）
+    el.distance.value = s.distanceM.toFixed(2);
+    el.distanceRange.value = Math.round(Calc.sliderFromLog(s.distanceM, LOG.distance) * 1000);
+    el.eyeHeight.value = s.eyeHeightM.toFixed(2);
+    el.aperture.value = s.aperture;
+    el.apertureRange.value = Math.round(Calc.sliderFromLog(s.aperture, LOG.aperture) * 1000);
+
+    // 锁定 UI 状态
+    el.compLockBtn.classList.toggle('active', s.fovLock);
+    el.compLockBtn.setAttribute('aria-pressed', s.fovLock ? 'true' : 'false');
+    if (el.compLockIcon) el.compLockIcon.textContent = s.fovLock ? '🔒' : '🔓';
+    el.distance.disabled = s.fovLock;
+    el.distanceRange.disabled = s.fovLock;
+    el.resetPortraitBtn.disabled = s.fovLock;
+    el.resetTopBtn.disabled = s.fovLock;
+    el.resetSideBtn.disabled = s.fovLock;
+  }
+
+  function renderViews() {
+    portraitView.render();
+    if (state.mode === 'person') {
+      sideView.render();
+    } else {
+      topView.render();
+      sideView.render();
+    }
+    fieldView.render();
+    bokehView.render();
+  }
+
+  // ---------- 显示模式 ----------
+  function updateModeVisibility() {
+    const isPerson = el.subjectType.value === 'person';
+    el.orientationWrap.hidden = !isPerson;
+    el.subjectSizeGroup.hidden = isPerson;
+    el.personHint.hidden = !isPerson;
+    el.personSceneWrap.hidden = !isPerson;
+    el.topViewWrap.hidden = isPerson;
+    el.sideViewWrap.hidden = false;
+    if (el.imageWidthCard) el.imageWidthCard.hidden = isPerson;
+    if (el.imageHeightCard) el.imageHeightCard.hidden = isPerson;
+    if (el.personImagingCard) el.personImagingCard.hidden = !isPerson;
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + tab));
+    const isMobile = window.matchMedia('(max-width: 600px)').matches;
+    document.querySelectorAll('[data-group]').forEach((g) => {
+      g.hidden = isMobile ? false : (g.getAttribute('data-group') !== tab);
+    });
+    updateModeVisibility();
+  }
+
+  // ---------- 翻译 ----------
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach((node) => {
+      const key = node.getAttribute('data-i18n');
+      if (I18N[currentLang] && I18N[currentLang][key] != null) node.textContent = I18N[currentLang][key];
+    });
+    document.title = t('appTitle') + ' | ' + t('subtitle');
+  }
+
+  function rebuildSensorSelect() {
+    const prevValue = el.sensor.value;
+    el.sensor.innerHTML = '';
+    const groups = {};
+    SENSOR_FORMATS.forEach((s, idx) => {
+      const gkey = sensorGroupName(s, currentLang);
+      (groups[gkey] = groups[gkey] || []).push({ s, idx });
+    });
+    Object.keys(groups).forEach((groupName) => {
+      const og = document.createElement('optgroup');
+      og.label = groupName;
+      groups[groupName].forEach(({ s, idx }) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = sensorDisplayName(s, currentLang);
+        og.appendChild(opt);
+      });
+      el.sensor.appendChild(og);
+    });
+    if (prevValue !== '' && SENSOR_FORMATS[prevValue]) {
+      el.sensor.value = prevValue;
+    } else {
+      const idx = SENSOR_FORMATS.findIndex((s) => s.name.indexOf('全画幅 36×24') === 0);
+      el.sensor.value = idx >= 0 ? idx : 0;
+    }
+  }
+
+  // ---------- 刻度线 ----------
+  function renderTickBar(barEl, values, cfg, fmtLabel) {
+    barEl.innerHTML = '';
+    values.forEach((v) => {
+      const t = Calc.sliderFromLog(v, cfg);
+      const span = document.createElement('span');
+      span.className = 'tick';
+      span.style.left = (t * 100).toFixed(2) + '%';
+      span.textContent = fmtLabel(v);
+      barEl.appendChild(span);
+    });
+  }
+  function populateTicks() {
+    renderTickBar($('focalTickBar'), [14,16,20,24,28,35,50, 85, 135, 200, 300, 400, 600], LOG.focal, (v) => v );
+    renderTickBar($('apertureTickBar'), [1.2, 1.4,1.8, 2.8, 4.0, 5.6, 8, 12, 22], LOG.aperture, (v) => 'f/' + v);
+  }
+
+  // ---------- 移动端折叠 ----------
+  function setupMobileToggle() {
+    const inputBtn = $('toggleInputBtn'), resultBtn = $('toggleResultBtn');
+    const inputPanel = $('panelInput'), resultPanel = $('panelResult');
+    const mq = window.matchMedia('(max-width: 600px)');
+    function update() {
+      if (!mq.matches) {
+        inputPanel.hidden = false; resultPanel.hidden = false;
+        inputBtn.style.display = 'none'; resultBtn.style.display = 'none';
+        return;
+      }
+      inputBtn.style.display = ''; resultBtn.style.display = '';
+      inputPanel.hidden = !inputBtn.classList.contains('active');
+      resultPanel.hidden = !resultBtn.classList.contains('active');
+    }
+    inputBtn.addEventListener('click', () => { inputBtn.classList.add('active'); resultBtn.classList.remove('active'); update(); });
+    resultBtn.addEventListener('click', () => { resultBtn.classList.add('active'); inputBtn.classList.remove('active'); update(); });
+    window.addEventListener('resize', update);
+    inputBtn.classList.remove('active'); resultBtn.classList.add('active');
+    update();
+  }
+
+  // ---------- 输入绑定 ----------
+  function bindLogSync(numEl, rangeEl, cfg, onChange) {
+    numEl.addEventListener('input', () => {
+      const v = parseFloat(numEl.value);
+      if (isFinite(v)) rangeEl.value = Math.round(Calc.sliderFromLog(v, cfg) * 1000);
+      onChange();
+    });
+    rangeEl.addEventListener('input', () => {
+      numEl.value = Calc.logFromSlider(parseFloat(rangeEl.value) / 1000, cfg).toFixed(2);
+      onChange();
+    });
+  }
+
+  function bindEvents() {
+    bindLogSync(el.focal, el.focalRange, LOG.focal, applyRawInputs);
+    bindLogSync(el.aperture, el.apertureRange, LOG.aperture, applyRawInputs);
+    bindLogSync(el.distance, el.distanceRange, LOG.distance, onDistanceChange);
+
+    el.sensor.addEventListener('change', () => {
+      const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
+      if (sensor) applyPresetToCoC(sensor);
+      applyRawInputs();
+    });
+
+    [el.subjectWidth, el.subjectHeight, el.bgDistance, el.bgLightSize].forEach((n) => {
+      n.addEventListener('input', applyRawInputs);
+      n.addEventListener('change', applyRawInputs);
+    });
+
+    el.cocPreset.addEventListener('change', () => {
+      const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
+      if (sensor) applyPresetToCoC(sensor);
+      applyRawInputs();
+    });
+    el.cocValue.addEventListener('input', () => {
+      if (syncingCoC) return;
+      el.cocPreset.value = '';
+      applyRawInputs();
+    });
+
+    el.subjectType.addEventListener('change', () => { updateModeVisibility(); applyRawInputs(); });
+    el.orientation.addEventListener('change', applyRawInputs);
+    el.eyeHeight.addEventListener('input', applyRawInputs);
+
+    document.querySelectorAll('.tab-btn').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
+    document.querySelectorAll('.lang-btn').forEach((btn) => btn.addEventListener('click', () => switchLang(btn.getAttribute('data-lang'))));
+
+    el.compLockBtn.addEventListener('click', () => setCompLock(!state.fovLock));
+
+    // 各视图重置
+    el.resetPortraitBtn.addEventListener('click', () => {
+      Object.assign(state, {
+        autoOrient: true, dragging: false,
+        angleH: 0, angleV: 0
+      });
+      Object.assign(state.pose, {
+        neck: { x: 0.0, y: 0.16 },
+        hip: { x: 0.0, y: 0.50 },
+        leftHand: { x: -0.28, y: 0.38 },
+        rightHand: { x: 0.28, y: 0.38 },
+        leftFoot: { x: -0.08, y: 1.00 },
+        rightFoot: { x: 0.08, y: 1.00 },
+        leftElbow: { x: -0.14, y: 0.26 },
+        rightElbow: { x: 0.14, y: 0.26 },
+        leftKnee: { x: -0.03, y: 0.75 },
+        rightKnee: { x: 0.03, y: 0.75 }
+      });
+      state.personView.cropOffsetM = 0;
+      state.eyeHeightM = DEFAULTS.eyeHeight;
+      state.heightM = DEFAULTS.eyeHeight;
+      el.eyeHeight.value = DEFAULTS.eyeHeight;
+      store.commit();
+    });
+
+    el.resetTopBtn.addEventListener('click', () => {
+      state.autoOrient = true; state.dragging = false;
+      state.angleH = 0; state.angleV = 0;
+      store.commit();
+    });
+
+    el.resetSideBtn.addEventListener('click', () => {
+      state.autoOrient = true; state.dragging = false;
+      state.angleH = 0; state.angleV = 0;
+      state.eyeHeightM = DEFAULTS.eyeHeight;
+      state.heightM = DEFAULTS.eyeHeight;
+      el.eyeHeight.value = DEFAULTS.eyeHeight;
+      store.commit();
+    });
+
+    el.resetDofBtn.addEventListener('click', () => {
+      el.aperture.value = DEFAULTS.aperture;
+      el.apertureRange.value = 500;
+      applyRawInputs();
+    });
+
+    el.resetBtn.addEventListener('click', () => {
+      el.focal.value = DEFAULTS.focal; el.focalRange.value = 500;
+      el.aperture.value = DEFAULTS.aperture; el.apertureRange.value = 500;
+      el.distance.value = DEFAULTS.distance; el.distanceRange.value = 500;
+      el.subjectType.value = DEFAULTS.subjectType;
+      el.orientation.value = DEFAULTS.orientation;
+      el.subjectWidth.value = DEFAULTS.subjectWidth;
+      el.subjectHeight.value = DEFAULTS.subjectHeight;
+      el.cocPreset.value = DEFAULTS.cocPreset;
+      el.cocValue.value = DEFAULTS.cocValue;
+      el.bgDistance.value = DEFAULTS.bgDistance;
+      el.bgLightSize.value = DEFAULTS.bgLightSize;
+      el.eyeHeight.value = DEFAULTS.eyeHeight;
+      lastDistanceM = DEFAULTS.distance;
+      state.fovLock = false;
+      state.lockFrameM = null;
+      updateModeVisibility();
+      applyRawInputs();
+    });
+  }
+
+  function switchLang(lang) {
+    setLang(lang);
+    applyTranslations();
+    rebuildSensorSelect();
+    document.querySelectorAll('.lang-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-lang') === lang));
+    applyRawInputs();
+  }
+
+  function syncSliderPositions() {
+    el.focalRange.value = Math.round(Calc.sliderFromLog(parseFloat(el.focal.value), LOG.focal) * 1000);
+    el.apertureRange.value = Math.round(Calc.sliderFromLog(parseFloat(el.aperture.value), LOG.aperture) * 1000);
+    el.distanceRange.value = Math.round(Calc.sliderFromLog(parseFloat(el.distance.value), LOG.distance) * 1000);
+  }
+
+  // ---------- 单一响应入口：data 变化 → 渲染所有组件 ----------
+  store.listen(() => {
+    renderResultCards();
+    renderViews();
+  });
+
+  function init() {
+    const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
+
+    portraitView.init(store);
+    topView.init(store);
+    sideView.init(store);
+    fieldView.init(store);
+    bokehView.init(store);
+
+    bindEvents();
+    applyTranslations();
+    rebuildSensorSelect();
+
+    // 初始被摄物坐标（场景画布上的固定位置）
+    const c = el.sceneTopCanvas;
+    store.update({ subjectX: c.width * 0.78, subjectY: c.height * 0.8 });
+
+    syncSliderPositions();
+    updateModeVisibility();
+    state.autoOrient = true;
+    state.dragging = false;
+    switchTab('basic');
+
+    if (sensor) applyPresetToCoC(sensor);
+    applyRawInputs();
+    populateTicks();
+    setupMobileToggle();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();

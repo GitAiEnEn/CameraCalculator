@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相机拍摄计算器 | Camera Calculator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="header-inner">
+    <div class="header-text">
+      <h1 data-i18n="appTitle">📷 相机拍摄计算器</h1>
+      <p class="subtitle" data-i18n="subtitle">拍摄距离 · 成像大小 · 景深 · 焦外光斑直径</p>
+    </div>
+    <div class="lang-switch">
+      <span class="lang-label" data-i18n="langLabel">语言</span>
+      <button class="lang-btn active" data-lang="zh">中文</button>
+      <button class="lang-btn" data-lang="en">English</button>
+    </div>
+  </div>
+</header>
+
+<div class="mobile-nav">
+  <button class="mobile-nav-btn active" id="toggleInputBtn" data-i18n="inputTitle">参数输入</button>
+  <button class="mobile-nav-btn active" id="toggleResultBtn" data-i18n="resultTitle">计算结果</button>
+</div>
+
+<main class="app-main">
+
+  <!-- ============ 输入面板 ============ -->
+  <section class="panel panel-input" id="panelInput">
+    <h2 data-i18n="inputTitle">参数输入</h2>
+
+    <div class="field-group">
+      <label for="sensor" data-i18n="sensor">画幅 / 传感器</label>
+      <select id="sensor"></select>
+      <div class="hint" id="sensorInfo"></div>
+    </div>
+
+    <div class="field-group">
+      <label for="focal" data-i18n="focal">焦距 (mm)</label>
+      <input type="number" id="focal" value="50" min="1" max="2000" step="0.1">
+      <input type="range" id="focalRange" min="0" max="1000" step="1" value="500" class="slider">
+      <div class="tick-bar" id="focalTickBar"></div>
+    </div>
+
+    <div class="field-group">
+      <label for="aperture" data-i18n="aperture">光圈 f 值</label>
+      <input type="number" id="aperture" value="4" min="0.7" max="64" step="0.1">
+      <input type="range" id="apertureRange" min="0" max="1000" step="1" value="500" class="slider">
+      <div class="tick-bar" id="apertureTickBar"></div>
+    </div>
+
+    <div class="field-group">
+      <label for="distance" data-i18n="distance">对焦距离 (m)</label>
+      <div class="distance-input-row">
+        <input type="number" id="distance" value="3" min="0.01" max="10000" step="0.01">
+        <button class="lock-btn" id="compLockBtn" type="button" aria-pressed="false" title="构图锁定">
+          <span class="lock-icon" id="compLockIcon">🔓</span>
+          <span data-i18n="compLock">构图锁定</span>
+        </button>
+      </div>
+      <input type="range" id="distanceRange" min="0" max="1000" step="1" value="500" class="slider">
+    </div>
+
+    <!-- 基本：被摄物类型与画面方向 -->
+    <div class="field-group" data-group="basic">
+      <div class="row-2">
+        <div class="subj-col">
+          <label for="subjectType" data-i18n="subjectType">被摄物类型</label>
+          <select id="subjectType">
+            <option value="person" selected data-i18n="subjectTypePerson">人</option>
+            <option value="object" data-i18n="subjectTypeObject">物体</option>
+          </select>
+        </div>
+        <div class="subj-col" id="orientationWrap">
+          <label for="orientation" data-i18n="orientation">画面方向</label>
+          <select id="orientation">
+            <option value="landscape" selected data-i18n="orientationLandscape">横屏</option>
+            <option value="portrait" data-i18n="orientationPortrait">竖屏</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint" id="personHint" data-i18n="personHeightHint">按平均身高 1.7m 计算，已预留头部空间</div>
+      <div class="row-2" id="eyeHeightRow">
+        <div class="subj-col">
+          <label for="eyeHeight" data-i18n="eyeHeight">相机相对人眼高度 (m)</label>
+          <input type="number" id="eyeHeight" value="1.6" min="0" max="3" step="0.01">
+        </div>
+      </div>
+    </div>
+
+    <!-- 基本：物体尺寸 -->
+    <div class="field-group" data-group="basic" id="subjectSizeGroup">
+      <label data-i18n="subjectSizeGroup">被摄物尺寸 (m)</label>
+      <div class="row-2">
+        <div class="subj-col">
+          <label for="subjectWidth" class="sub-label" data-i18n="subjectWidth">水平宽度</label>
+          <input type="number" id="subjectWidth" value="0.6" min="0.001" max="1000" step="0.01">
+        </div>
+        <div class="subj-col">
+          <label for="subjectHeight" class="sub-label" data-i18n="subjectHeight">垂直高度</label>
+          <input type="number" id="subjectHeight" value="1.7" min="0.001" max="1000" step="0.01">
+        </div>
+      </div>
+      <div class="hint" data-i18n="subjectSizeHint">用于计算成像大小及构图（如人物宽 0.6m、高 1.7m）</div>
+    </div>
+
+    <!-- 景深：CoC -->
+    <div class="field-group" data-group="dof" hidden>
+      <div class="row-2">
+        <div class="subj-col">
+          <label for="cocPreset" data-i18n="cocPreset">景深清晰度标准</label>
+          <select id="cocPreset">
+            <option value=""></option>
+            <option value="normal" selected data-i18n="cocNormal">一般（标准）</option>
+            <option value="loose" data-i18n="cocLoose">宽松（景深更深）</option>
+            <option value="strict" data-i18n="cocStrict">严格（景深更浅）</option>
+          </select>
+        </div>
+        <div class="subj-col">
+          <label for="cocValue" data-i18n="cocValueLabel">CoC 直径 (mm)</label>
+          <input type="number" id="cocValue" value="0.030" min="0.001" max="0.2" step="0.001">
+        </div>
+      </div>
+      <div class="hint" data-i18n="cocHint">CoC 越小 = 对清晰度要求越严格，计算的景深越浅</div>
+    </div>
+
+    <!-- 焦外 -->
+    <div class="field-group" data-group="bokeh" hidden>
+      <div class="row-2">
+        <div class="subj-col">
+          <label for="bgDistance"><span data-i18n="bgDistance">背景/焦外点距离 (m)</span> <span class="opt" data-i18n="optional">可选</span></label>
+          <input type="number" id="bgDistance" value="10" min="0.01" max="100000" step="0.1">
+        </div>
+        <div class="subj-col">
+          <label for="bgLightSize"><span data-i18n="bgLightSize">焦外光源实际直径 (m)</span> <span class="opt" data-i18n="optional">可选</span></label>
+          <input type="number" id="bgLightSize" value="0" min="0" max="100" step="0.01">
+        </div>
+      </div>
+      <div class="hint" data-i18n="bgDistanceHint">背景距离与光源尺寸用于计算焦外光斑直径</div>
+    </div>
+
+    <button id="resetBtn" class="btn-secondary" data-i18n="reset">重置默认值</button>
+  </section>
+
+  <!-- ============ 结果面板 ============ -->
+  <section class="panel panel-result" id="panelResult">
+    <h2 data-i18n="resultTitle">计算结果</h2>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="basic" data-i18n="tabBasic">基本</button>
+      <button class="tab-btn" data-tab="dof" data-i18n="tabDof">景深</button>
+      <button class="tab-btn" data-tab="bokeh" data-i18n="tabBokeh">焦外</button>
+    </div>
+
+    <!-- 基本 -->
+    <div class="tab-panel active" id="tab-basic">
+      <div class="result-grid" id="objectCards">
+        <div class="card">
+          <div class="card-title" data-i18n="equivFocal">等效焦距 (35mm 全画幅)</div>
+          <div class="card-value" id="rEquivFocal">—</div>
+          <div class="card-unit" data-i18n="unitMm">mm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="fov">视角 (水平 × 垂直)</div>
+          <div class="card-value" id="rFov">—</div>
+          <div class="card-unit" data-i18n="unitDeg">度</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="magnification">放大倍率</div>
+          <div class="card-value" id="rMagnification">—</div>
+          <div class="card-unit" data-i18n="unitTimes">×</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="fovWidth">水平视野宽度</div>
+          <div class="card-value" id="rFovWidth">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="fovHeight">垂直视野高度</div>
+          <div class="card-value" id="rFovHeight">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card" id="imageWidthCard">
+          <div class="card-title" data-i18n="imageWidth">成像宽度</div>
+          <div class="card-value" id="rImageWidth">—</div>
+          <div class="card-unit" data-i18n="unitMmRatio">mm / 占画幅</div>
+        </div>
+        <div class="card" id="imageHeightCard">
+          <div class="card-title" data-i18n="imageHeight">成像高度</div>
+          <div class="card-value" id="rImageHeight">—</div>
+          <div class="card-unit" data-i18n="unitMmRatio">mm / 占画幅</div>
+        </div>
+        <div class="card" id="personImagingCard" hidden>
+          <div class="card-title" data-i18n="personImagingLength">人成像长度</div>
+          <div class="card-value" id="rPersonImaging">—</div>
+          <div class="card-unit" data-i18n="unitMmRatio">mm / 占画幅</div>
+        </div>
+      </div>
+
+      <div class="scene-row">
+        <!-- 人像构图视图（仅人像模式显示） -->
+        <div class="visual-wrap" id="personSceneWrap">
+          <h3 class="section-title" data-i18n="scenePersonVisual">人像构图视图</h3>
+          <canvas id="personCanvas" width="420" height="560"></canvas>
+          <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
+        </div>
+
+        <!-- 俯视图水平参考（仅物体模式显示） -->
+        <div class="visual-wrap" id="topViewWrap" hidden>
+          <h3 class="section-title" data-i18n="sceneTopVisual">俯视图：相机与被摄物距离</h3>
+          <canvas id="sceneTopCanvas" width="640" height="853"></canvas>
+          <button class="view-reset-btn" id="resetTopBtn" type="button" data-i18n="viewReset">重置</button>
+        </div>
+
+        <!-- 俯视图垂直参考（人像与物体共用） -->
+        <div class="visual-wrap" id="sideViewWrap">
+          <h3 class="section-title" data-i18n="sceneTopVisual">俯视图：相机与被摄物距离</h3>
+          <canvas id="sceneSideCanvas" width="640" height="853"></canvas>
+          <button class="view-reset-btn" id="resetSideBtn" type="button" data-i18n="viewReset">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 景深 -->
+    <div class="tab-panel" id="tab-dof">
+      <div class="result-grid">
+        <div class="card highlight">
+          <div class="card-title" data-i18n="dofTotal">总景深</div>
+          <div class="card-value" id="rDofTotal">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="dofNear">前景深</div>
+          <div class="card-value" id="rDofNear">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="dofFar">后景深</div>
+          <div class="card-value" id="rDofFar">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="dofRange">清晰范围</div>
+          <div class="card-value" id="rDofRange">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="hyperfocal">超焦距</div>
+          <div class="card-value" id="rHyperfocal">—</div>
+          <div class="card-unit" data-i18n="unitM">m</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="entrancePupil">入瞳直径</div>
+          <div class="card-value" id="rEntrancePupil">—</div>
+          <div class="card-unit" data-i18n="unitMm">mm</div>
+        </div>
+      </div>
+
+      <div class="visual-wrap">
+        <h3 class="section-title" data-i18n="dofVisual">景深可视化</h3>
+        <canvas id="dofCanvas" width="900" height="240"></canvas>
+        <button class="view-reset-btn" id="resetDofBtn" type="button" data-i18n="viewReset">重置</button>
+      </div>
+
+      <div class="conclusion-box">
+        <h3 class="section-title" data-i18n="dofConclusionLabel">景深结论</h3>
+        <p id="dofConclusion">—</p>
+      </div>
+    </div>
+
+    <!-- 焦外 -->
+    <div class="tab-panel" id="tab-bokeh">
+      <div class="result-grid">
+        <div class="card highlight">
+          <div class="card-title" data-i18n="bokehSensor">焦外光斑直径（传感器上）</div>
+          <div class="card-value" id="rBokehSensor">—</div>
+          <div class="card-unit" data-i18n="unitMm">mm</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="bokehRatio">光斑占画幅比例</div>
+          <div class="card-value" id="rBokehRatio">—</div>
+          <div class="card-unit" data-i18n="unitPercent">%</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="bokehPixels">光斑像素直径</div>
+          <div class="card-value" id="rBokehPixels">—</div>
+          <div class="card-unit" data-i18n="unitPx">px</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="bokehBlur">背景模糊程度</div>
+          <div class="card-value" id="rBokehBlur">—</div>
+          <div class="card-unit" data-i18n="unitLevel">等级</div>
+        </div>
+      </div>
+
+      <div class="visual-wrap">
+        <h3 class="section-title" data-i18n="bokehVisual">焦外光斑预览 (3:2)</h3>
+        <canvas id="bokehCanvas" width="900" height="560"></canvas>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <p data-i18n="footer">相机拍摄计算器 · 纯前端实现 · 所有计算在本地浏览器完成</p>
+  <p><a href="formulas.html" class="formula-link" data-i18n="formulaLink">查看详细公式说明 →</a></p>
+</footer>
+
+<script src="js/sensors.js"></script>
+<script src="js/calc.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/data.js"></script>
+<script src="js/FieldVisualizationView.js"></script>
+<script src="js/BokehPreview.js"></script>
+<script src="js/CameraDistanceView.js"></script>
+<script src="js/PortraitView.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

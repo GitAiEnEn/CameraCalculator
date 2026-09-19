@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公式说明 | Camera Calculator</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .back-link { display:inline-block; margin-bottom:18px; color:var(--accent); text-decoration:none; font-weight:600; }
+  .back-link:hover { text-decoration:underline; }
+  .formula-page { max-width:1000px; grid-template-columns: 1fr; }
+  .principle { background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-top:14px; }
+  .principle h3 { font-size:15px; color:var(--accent-2); margin-bottom:8px; }
+  .principle p { font-size:13px; color:var(--text-dim); line-height:1.8; }
+  .principle ul { margin:8px 0 0 20px; font-size:13px; color:var(--text-dim); line-height:1.8; }
+  .ref-table { width:100%; border-collapse:collapse; margin-top:14px; font-size:13px; }
+  .ref-table th, .ref-table td { border:1px solid var(--border); padding:8px 10px; text-align:left; color:var(--text-dim); }
+  .ref-table th { background:var(--panel-2); color:var(--accent-2); font-weight:600; }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="header-inner">
+    <div class="header-text">
+      <h1>📐 计算公式与原理详解</h1>
+      <p class="subtitle">Camera Calculator · Formulas & Principles</p>
+    </div>
+  </div>
+</header>
+
+<main class="app-main formula-page">
+  <section class="panel">
+    <a href="index.html" class="back-link">← 返回计算器</a>
+    <h2>等效焦距</h2>
+    <code>f_equiv = f × 裁切系数</code>
+    <div class="principle">
+      <h3>原理</h3>
+      <p>不同画幅的传感器尺寸不同，同样的物理焦距产生的视角也不同。等效焦距是把当前镜头的视角换算成全画幅（36×24mm）下对应的焦距，方便比较。裁切系数 = 全画幅对角线（约 43.27mm）÷ 当前传感器对角线。</p>
+    </div>
+
+    <h2 style="margin-top:28px;">视角（FOV）</h2>
+    <code>FOV = 2 × arctan( d / (2f) )</code>
+    <div class="principle">
+      <h3>原理</h3>
+      <p>视角取决于传感器某一边的长度（水平/垂直/对角 d）和焦距 f。焦距越短、传感器越大，视角越宽。</p>
+      <ul>
+        <li>水平视角：用传感器宽度代入 d。</li>
+        <li>垂直视角：用传感器高度代入 d。</li>
+        <li>对角视角：用传感器对角线代入 d。</li>
+      </ul>
+    </div>
+
+    <h2 style="margin-top:28px;">成像大小 / 放大倍率</h2>
+    <code>m = f / (u − f)</code>
+    <code>h' = m × h</code>
+    <div class="principle">
+      <h3>原理</h3>
+      <p>薄透镜成像公式：1/f = 1/u + 1/v。放大倍率是像高与物高之比，等于 v/u。对远处物体（u ≫ f），像距近似等于焦距，因此像大小近似 h' ≈ h × f/u。</p>
+    </div>
+
+    <h2 style="margin-top:28px;">景深（DoF）</h2>
+    <code>H = f² / (N × c) + f</code>
+    <code>DN = u(H − f) / (H + u − 2f)</code>
+    <code>DF = u(H − f) / (H − u)</code>
+    <div class="principle">
+      <h3>原理</h3>
+      <p>对焦平面上的点会在传感器上形成清晰的像点；位于对焦平面前后一定范围内的点，其弥散圆直径仍小于允许接受的弥散圆直径 c，因此看起来仍是清晰的，这个范围就是景深。</p>
+      <ul>
+        <li><strong>光圈 N 越大（数值越大）</strong>，入瞳越小，景深越深。</li>
+        <li><strong>焦距 f 越长</strong>，景深越浅。</li>
+        <li><strong>对焦距离 u 越近</strong>，景深越浅。</li>
+        <li><strong>弥散圆 c 越小</strong>（要求越严格），景深越浅。</li>
+        <li>当对焦距离等于超焦距 H 时，清晰范围从 H/2 延伸到无穷远。</li>
+      </ul>
+    </div>
+
+    <h2 style="margin-top:28px;">焦外光斑直径（Bokeh）</h2>
+    <code>A = f / N</code>
+    <code>B = A × |u_bg − u| / u_bg × (f / (u − f))</code>
+    <div class="principle">
+      <h3>原理</h3>
+      <p>背景上离开对焦平面的点光源，在传感器上不再是点，而是圆形的弥散斑（光斑）。光斑大小与入瞳直径 A、背景距离 u_bg、对焦距离 u 相关。入瞳越大、背景越远、对焦越近，光斑越大，虚化越强。</p>
+      <p style="margin-top:8px;">远景简化：B ≈ A × f / (u − f)。</p>
+    </div>
+
+    <h2 style="margin-top:28px;">景别（人像取景范围）速查</h2>
+    <div class="principle">
+      <h3>判定公式</h3>
+      <p>程序中人物身高固定为 1.70m（完整全身），景别依据「人物垂直占画面高度」判断。为便于程序使用，各标准区间统一换算为「人物身高 ÷ 取景框竖直高度」的阈值，比例越大人物越充满画面（越近/越紧）。</p>
+      <table class="ref-table">
+        <thead>
+          <tr>
+            <th>景别名称</th>
+            <th>英文缩写</th>
+            <th>核心取景范围</th>
+            <th>人物垂直占画面高度（标准区间）</th>
+            <th>核心用途 / 适用场景</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>大特写</td><td>ECU</td><td>人物身体极小局部（单只眼睛、嘴唇、手指、饰品、眼泪等），无完整面部/身体</td><td>20%~40%（仅局部主体，无完整身体结构）</td><td>极致放大情绪细节、材质质感，强化视觉冲击力</td></tr>
+          <tr><td>特写</td><td>CU</td><td>肩部以上（完整头部+肩部），俗称头像景</td><td>60%~80%（头部+肩部占画面主体，头顶到画面上沿留5%-10%呼吸空间）</td><td>聚焦面部表情、眼神情绪，是人像、cos妆造特写的核心景别</td></tr>
+          <tr><td>中近景</td><td>MCU</td><td>胸部以上（头顶到胸口/乳线位置），俗称胸像景</td><td>70%~85%（头部+胸部占画面主体，兼顾面部神态与上半身轮廓）</td><td>人像写真、漫展场照最常用景别，兼顾表情与人物体态，适配绝大多数社交平台画幅</td></tr>
+          <tr><td>中景</td><td>MS</td><td>腰部/胯部以上（头顶到腰线/胯部），俗称半身景</td><td>60%~75%（完整上半身，兼顾面部神态、手势动作与身体姿态）</td><td>双人对话、日常人像、cos动作展示，平衡人物与环境的关系</td></tr>
+          <tr><td>中全景</td><td>MFS</td><td>大腿中部/脚踝以上（接近完整全身，仅省略脚底极小部分）</td><td>70%~80%（接近完整全身，兼顾人物姿态与少量环境）</td><td>人像全身氛围感拍摄，既保留人物完整体态，又不会纳入过多冗余环境</td></tr>
+          <tr><td>全景</td><td>FS</td><td>完整从头到脚的全身，人物完整全身纳入画面</td><td>70%~80%（标准规范：头顶留8%-12%呼吸空间，脚下留10%-15%留白，避免顶天立地）</td><td>完整展示人物全身姿态、cos服装造型，兼顾人物与周边环境</td></tr>
+          <tr><td>远景</td><td>LS</td><td>完整全身+大量周边环境，人物完整但在画面中占比缩小</td><td>35%~60%（环境占比超过人物，突出人物所处的空间氛围）</td><td>外景人像、环境人像，交代人物与场景的关系</td></tr>
+          <tr><td>大远景</td><td>ELS / XLS</td><td>宏大环境为主，人物仅为画面中的渺小主体</td><td>＜35%（人物仅为画面的视觉点缀，核心展示环境的宏大感）</td><td>风光人像、电影感大场景，渲染辽阔、孤独、宏大的情绪氛围</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:28px;">常见画幅裁切系数速查</h2>
+    <div class="principle">
+      <ul>
+        <li>全画幅（36×24）：1.0×</li>
+        <li>佳能 APS-C（22.3×14.9）：约 1.6×</li>
+        <li>索尼/尼康/富士 APS-C（23.5×15.6）：约 1.5×</li>
+        <li>M4/3（17.3×13.0）：约 2.0×</li>
+        <li>1 英寸（13.2×8.8）：约 2.7×</li>
+      </ul>
+    </div>
+
+    <p style="margin-top:24px;"><a href="index.html" class="back-link">← 返回计算器</a></p>
+  </section>
+</main>
+
+<footer class="app-footer">
+  <p>相机拍摄计算器 · 公式与原理详解</p>
+</footer>
+</body>
+</html>

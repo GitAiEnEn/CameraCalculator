@@ -1,0 +1,208 @@
+/**
+ * CameraDistanceView.js
+ * 相机与被摄物距离视图（类）
+ *   kind: 'top' 水平参考 | 'side' 垂直参考
+ * init(store) 绑定 canvas 拖拽交互，render() 从 store 读取并绘制。
+ */
+class CameraDistanceView {
+  constructor(canvas, kind, useVerticalFrame) {
+    this.canvas = canvas;
+    this.kind = kind;
+    // 该视图测量画面的方向：true = 垂直高度作为画面高度；
+    // false = 水平长度作为成像长度。
+    this.useVerticalFrame = useVerticalFrame !== false;
+    this.ctx = canvas.getContext('2d');
+    this.store = null;
+    this._dragMode = null;
+  }
+
+  init(store) {
+    this.store = store;
+    this.canvas.addEventListener('pointerdown', (e) => this._down(e));
+    this.canvas.addEventListener('pointermove', (e) => this._move(e));
+    this.canvas.addEventListener('pointerup', () => this._stop());
+    this.canvas.addEventListener('pointercancel', () => this._stop());
+  }
+
+  getPos(e) {
+    const r = this.canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * (this.canvas.width / r.width),
+      y: (e.clientY - r.top) * (this.canvas.height / r.height)
+    };
+  }
+
+  hitTest(pos) {
+    const s = this.store.state;
+    if (Math.hypot(pos.x - s.camX, pos.y - s.camY) < 20) return 'camera';
+    const hx = s.camX + Math.cos(s.angleH) * 30;
+    const hy = s.camY + Math.sin(s.angleH) * 30;
+    return Math.hypot(pos.x - hx, pos.y - hy) < 14 ? 'angle' : null;
+  }
+
+  _down(e) {
+    // 构图锁定时禁用交互
+    if (this.store.state.fovLock) return;
+    this._dragMode = this.hitTest(this.getPos(e));
+    if (this._dragMode) {
+      this.store.state.dragging = true;
+      this.canvas.setPointerCapture(e.pointerId);
+    }
+  }
+
+  _move(e) {
+    if (!this._dragMode) return;
+    const s = this.store.state;
+    const pos = this.getPos(e);
+
+    if (this._dragMode === 'camera') {
+      s.autoOrient = false;
+      s.camX = pos.x;
+      s.camY = pos.y;
+      // 水平距离 → 对焦距离；垂直位置 → 相机高度
+      const newDist = Math.max(0.1, (s.subjectX - s.camX) / s.scale);
+      s.heightM = Math.max(0, (s.subjectY - s.camY) / s.scale);
+      if (s.mode === 'person') { s.eyeHeightM = s.heightM; }
+      s.distanceM = newDist;
+      this.store.commit();
+    } else {
+      s.autoOrient = false;
+      const ang = Math.max(-1.35, Math.min(1.35,
+        Math.atan2(pos.y - s.camY, pos.x - s.camX)));
+      if (this.kind === 'top') s.angleH = ang;
+      else s.angleV = ang;
+      this.store.commit();
+    }
+  }
+
+  _stop() {
+    this._dragMode = null;
+    this.store.state.dragging = false;
+  }
+
+  render() {
+    const s = this.store.state;
+    const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, W, H);
+
+    const isPerson = s.mode === 'person';
+    const isTop = this.kind === 'top';
+    const isPortrait = s.orientation === 'portrait';
+
+    // 画面竖直/水平方向对应的传感器尺寸（竖屏时画面旋转 90°，竖方向变为传感器宽度）
+    const sensorW = s.sensor ? s.sensor.w : 36;
+    const sensorH = s.sensor ? s.sensor.h : 24;
+    const focal = s.focal || 50;
+    const distM = s.distanceM || 3;
+
+    const frameSensorSize = this.useVerticalFrame
+      ? (isPortrait ? sensorW : sensorH)
+      : (isPortrait ? sensorH : sensorW);
+
+    const fovDeg = Calc.fieldOfView(frameSensorSize, focal);
+    const imagingLengthM = (frameSensorSize / focal) * distM;
+    const angle = isTop ? s.angleH : s.angleV;
+
+    // 地面线
+    ctx.strokeStyle = '#334155';
+    ctx.beginPath(); ctx.moveTo(0, s.subjectY); ctx.lineTo(W, s.subjectY); ctx.stroke();
+
+    // 相机与主题连线
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(s.camX, s.camY); ctx.lineTo(s.subjectX, s.subjectY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const span = this.drawFovCone(fovDeg, angle);
+
+    // 被摄物在该视图方向上的长度（物体长度）
+    const subjectLengthM = this.useVerticalFrame
+      ? (isPerson ? (s.refHeightM || s.subjectH) : s.subjectH)
+      : s.subjectW;
+
+    // 主题 + 构图状态
+    if (this.useVerticalFrame) {
+      const hpx = Math.min(subjectLengthM * s.scale, H * 0.7);
+      const extent = { top: s.subjectY - hpx, bottom: s.subjectY };
+      this.drawSubject(extent, span, 8, W);
+    } else {
+      const hpx = Math.min((subjectLengthM / 2) * s.scale, 60);
+      const extent = { top: s.subjectY - hpx, bottom: s.subjectY + hpx };
+      this.drawSubject(extent, span, 6, W);
+    }
+
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(t('sceneSubject'), s.subjectX, s.subjectY + 28);
+
+    this.drawCamera(angle);
+    this.drawAnnotations(fovDeg, imagingLengthM, subjectLengthM, isTop);
+  }
+
+  drawFovCone(fovDeg, angle) {
+    const s = this.store.state, ctx = this.ctx;
+    const half = (fovDeg / 2) * Math.PI / 180;
+    const end = (ang) => {
+      const cosA = Math.cos(ang), sinA = Math.sin(ang);
+      const dx = s.subjectX - s.camX;
+      const forward = cosA > 0.03;
+      const t = forward ? dx / cosA : 240;
+      return { x: s.camX + t * cosA, y: s.camY + t * sinA, forward };
+    };
+    const a = end(angle - half), b = end(angle + half);
+    ctx.strokeStyle = 'rgba(56,189,248,0.35)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(s.camX, s.camY); ctx.lineTo(a.x, a.y);
+    ctx.moveTo(s.camX, s.camY); ctx.lineTo(b.x, b.y); ctx.stroke();
+
+    const span = { a, b, top: Math.min(a.y, b.y), bottom: Math.max(a.y, b.y) };
+    if (a.forward && b.forward) {
+      ctx.strokeStyle = 'rgba(56,189,248,0.6)'; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(s.subjectX, span.top); ctx.lineTo(s.subjectX, span.bottom); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    return span;
+  }
+
+  frameStatus(extent, span) {
+    if (!extent || !span) return 'in';
+    if (extent.top >= span.top && extent.bottom <= span.bottom) return 'in';
+    if (extent.top < span.bottom && extent.bottom > span.top) return 'partial';
+    return 'out';
+  }
+
+  drawSubject(extent, span, halfW, W) {
+    const ctx = this.ctx;
+    const status = this.frameStatus(extent, span);
+    ctx.fillStyle = status === 'in' ? '#22c55e' : status === 'partial' ? '#f59e0b' : '#ef4444';
+    ctx.fillRect(this.store.state.subjectX - halfW, extent.top, halfW * 2, extent.bottom - extent.top);
+
+    const txt = status === 'in' ? t('inFrame') : status === 'partial' ? t('partialFrame') : t('outFrame');
+    ctx.fillStyle = ctx.fillStyle;
+    ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(txt, W - 12, 26);
+  }
+
+  drawCamera(angle) {
+    const s = this.store.state, ctx = this.ctx;
+    ctx.fillStyle = '#f59e0b'; ctx.fillRect(s.camX - 9, s.camY - 9, 18, 18);
+    ctx.fillStyle = '#e2e8f0'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(t('sceneCamera'), s.camX - 8, s.camY + 26);
+    const hx = s.camX + Math.cos(angle) * 30, hy = s.camY + Math.sin(angle) * 30;
+    ctx.fillStyle = '#f87171'; ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  drawAnnotations(fovDeg, imagingLengthM, subjectLengthM, isHorizontal) {
+    const s = this.store.state, ctx = this.ctx;
+    ctx.fillStyle = '#7dd3fc'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText((isHorizontal ? 'FOV H ' : 'FOV V ') + fovDeg.toFixed(1) + '°', 12, 22);
+    ctx.fillText(t('sceneDistance') + ' ' + (s.distanceM || 0).toFixed(2) + 'm', 12, 42);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif';
+    const camH = s.mode === 'person' ? (s.eyeHeightM != null ? s.eyeHeightM : s.heightM) : s.heightM;
+    ctx.fillText(t('camHeight') + ' ' + camH.toFixed(2) + 'm', 12, 62);
+    ctx.fillText(t('tiltAngle') + ' ' + ((isHorizontal ? s.angleH : s.angleV) * 180 / Math.PI).toFixed(1) + '°', 12, 82);
+    ctx.fillText(t('subjectLength') + ' ' + subjectLengthM.toFixed(2) + 'm', 12, 102);
+    ctx.fillText(t('imagingLength') + ' ' + imagingLengthM.toFixed(2) + 'm', 12, 122);
+  }
+}
+
+window.CameraDistanceView = CameraDistanceView;
