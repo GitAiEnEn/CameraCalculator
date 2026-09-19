@@ -96,6 +96,10 @@ const translations = {
     camHeight: '相机高度',
     tiltAngle: '倾斜角度',
     personDragHint: '拖动人物上下调整取景位置',
+    uploadImage: '上传图片',
+    removeImage: '移除图片',
+    editPose: '调整姿势',
+    panImage: '调整图片',
 
     // Formula
     formulaTitle: '计算公式说明',
@@ -133,6 +137,7 @@ const translations = {
     dofRangeLabel: '景深范围',
     focusPoint: '对焦点',
     dofConclusionLabel: '景深结论',
+    dofConclusionEye: '景深极浅，仅能对焦眼部（单眼清晰）',
     dofConclusionTiny: '景深极浅，仅能保证局部（如眼睛）清晰',
     dofConclusionFace: '景深较浅，仅能保证面部清晰',
     dofConclusionBody: '景深适中，可保证单人身体基本清晰',
@@ -248,6 +253,10 @@ const translations = {
     camHeight: 'Camera Height',
     tiltAngle: 'Tilt Angle',
     personDragHint: 'Drag the person to adjust framing',
+    uploadImage: 'Upload Image',
+    removeImage: 'Remove Image',
+    editPose: 'Edit Pose',
+    panImage: 'Adjust Image',
 
     // Formula
     formulaTitle: 'Formulas',
@@ -285,6 +294,7 @@ const translations = {
     dofRangeLabel: 'DoF Range',
     focusPoint: 'Focus',
     dofConclusionLabel: 'DoF Conclusion',
+    dofConclusionEye: 'Extremely shallow DoF, only the eye can be focused',
     dofConclusionTiny: 'Very shallow DoF, only local area (e.g. eyes) sharp',
     dofConclusionFace: 'Shallow DoF, only the face is sharp',
     dofConclusionBody: 'Moderate DoF, a single person body stays sharp',

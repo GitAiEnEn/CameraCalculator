@@ -125,6 +125,7 @@ const Calc = (function () {
   function dofConclusion(totalMm) {
     const met = totalMm / 1000;
     if (!isFinite(met)) return 'dofConclusionTwoRows';
+    if (met < 0.01) return 'dofConclusionEye';
     if (met < 0.05) return 'dofConclusionTiny';
     if (met < 0.3) return 'dofConclusionFace';
     if (met < 1.5) return 'dofConclusionBody';

@@ -206,6 +206,13 @@
           <h3 class="section-title" data-i18n="scenePersonVisual">人像构图视图</h3>
           <canvas id="personCanvas" width="420" height="560"></canvas>
           <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
+          <div class="person-toolbar">
+            <button class="person-mode-btn active" type="button" data-mode="pose" data-i18n="editPose">调整姿势</button>
+            <button class="person-mode-btn" type="button" data-mode="pan" data-i18n="panImage">调整图片</button>
+            <button class="person-mode-btn" type="button" id="personImageUploadBtn" data-i18n="uploadImage">上传图片</button>
+            <button class="person-mode-btn danger" type="button" id="removePersonImageBtn" data-i18n="removeImage" hidden>移除图片</button>
+            <input type="file" id="personImageInput" accept="image/*" hidden>
+          </div>
         </div>
 
         <!-- Top view horizontal reference (object mode only) -->

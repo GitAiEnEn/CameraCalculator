@@ -3,7 +3,7 @@
  * Portrait framing view (class)
  *
  * init(store) binds canvas interactions (joint dragging / vertical scroll to
- * adjust eye height).
+ * adjust eye height / image upload, zoom, and pan).
  * render() reads the model from store.state and draws it.
  * Interactions mutate store.state directly and call store.commit() to recompute.
  *
@@ -23,6 +23,14 @@ class PortraitView {
       torsoW: 0.10,  // torso stroke width
       limbW: 0.055,  // limb / neck stroke width
       jointR: 4      // joint dot radius (px)
+    };
+
+    // Stick figure colors: red head, complementary teal body.
+    this.COLORS = {
+      head: '#ef4444',
+      headStroke: '#f87171',
+      body: '#2dd4bf',
+      joint: '#f87171'
     };
 
     // Rest pose used to lock each bone's initial length.
@@ -52,12 +60,30 @@ class PortraitView {
       this.BONE_LENGTHS[a + ':' + b] = Math.hypot(dx, dy);
     });
 
-    this._mode = null;
+    // Interaction state.
+    this._mode = null;                // 'joint' | 'scroll' | 'pan'
     this._active = null;
+    this._lastX = 0;
     this._lastY = 0;
+    this._lastPos = { x: 0, y: 0 };
+    this._panX = 0;                   // Horizontal pan of the stick figure (fraction of heightPx)
+
+    // Uploaded reference image state.
+    this._image = null;
+    this._imageLoaded = false;
+    this._imageScale = 1;
+    this._imageOffsetX = 0;
+    this._imageOffsetY = 0;
+    this._interaction = 'pose';       // 'pose' | 'pan'
   }
 
   clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  // Reset the stick figure's horizontal pan offset.
+  resetPan() {
+    this._panX = 0;
+    this.render();
+  }
 
   init(store) {
     this.store = store;
@@ -66,6 +92,91 @@ class PortraitView {
     canvas.addEventListener('pointermove', (e) => this._move(e));
     canvas.addEventListener('pointerup', () => this._stop());
     canvas.addEventListener('pointercancel', () => this._stop());
+    canvas.addEventListener('wheel', (e) => this._onWheel(e), { passive: false });
+
+    this._initImageControls();
+  }
+
+  // Wire up the image upload / remove / mode buttons owned by the toolbar.
+  _initImageControls() {
+    const uploadBtn = document.getElementById('personImageUploadBtn');
+    const fileInput = document.getElementById('personImageInput');
+    const removeBtn = document.getElementById('removePersonImageBtn');
+
+    if (uploadBtn && fileInput) {
+      uploadBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', () => this._loadImage(fileInput.files[0]));
+    }
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => this._removeImage());
+    }
+
+    document.querySelectorAll('.person-mode-btn').forEach((btn) => {
+      btn.addEventListener('click', () => this._setInteraction(btn.getAttribute('data-mode')));
+    });
+  }
+
+  _setInteraction(mode) {
+    this._interaction = mode;
+    document.querySelectorAll('.person-mode-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+    });
+    this.canvas.style.cursor = (mode === 'pan' && this._imageLoaded) ? 'grab' : 'default';
+  }
+
+  _loadImage(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        this._image = img;
+        this._imageLoaded = true;
+        this._fitImage();
+        const removeBtn = document.getElementById('removePersonImageBtn');
+        if (removeBtn) removeBtn.hidden = false;
+        this.canvas.style.cursor = this._interaction === 'pan' ? 'grab' : 'default';
+        this.render();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  _removeImage() {
+    this._image = null;
+    this._imageLoaded = false;
+    const removeBtn = document.getElementById('removePersonImageBtn');
+    if (removeBtn) removeBtn.hidden = true;
+    this.canvas.style.cursor = 'default';
+    this.render();
+  }
+
+  // Fit the image inside the canvas (contain), centered.
+  _fitImage() {
+    if (!this._image) return;
+    const w = this.canvas.width, h = this.canvas.height;
+    const scale = Math.min(w / this._image.naturalWidth, h / this._image.naturalHeight);
+    this._imageScale = scale;
+    this._imageOffsetX = (w - this._image.naturalWidth * scale) / 2;
+    this._imageOffsetY = (h - this._image.naturalHeight * scale) / 2;
+  }
+
+  _zoomImage(factor, cx, cy) {
+    const worldX = (cx - this._imageOffsetX) / this._imageScale;
+    const worldY = (cy - this._imageOffsetY) / this._imageScale;
+    this._imageScale = Math.max(0.1, Math.min(10, this._imageScale * factor));
+    this._imageOffsetX = cx - worldX * this._imageScale;
+    this._imageOffsetY = cy - worldY * this._imageScale;
+  }
+
+  _onWheel(e) {
+    if (!this._imageLoaded) return;
+    e.preventDefault();
+    const pos = this.getPos(e);
+    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    this._zoomImage(factor, pos.x, pos.y);
+    this.render();
   }
 
   getPos(e) {
@@ -96,9 +207,19 @@ class PortraitView {
     // Disable interaction while framing lock is active
     if (this.store.state.fovLock) return;
     const pos = this.getPos(e);
+
+    // In pan mode (with an image loaded), dragging the empty canvas pans the image.
+    if (this._interaction === 'pan' && this._imageLoaded) {
+      this._mode = 'pan';
+      this._lastPos = pos;
+      this.canvas.style.cursor = 'grabbing';
+      this.canvas.setPointerCapture(e.pointerId);
+      return;
+    }
+
     const j = this.hitJoint(pos);
     if (j) { this._mode = 'joint'; this._active = j; }
-    else { this._mode = 'scroll'; this._lastY = e.clientY; }
+    else { this._mode = 'scroll'; this._lastX = e.clientX; this._lastY = e.clientY; }
     this.canvas.setPointerCapture(e.pointerId);
   }
 
@@ -172,14 +293,35 @@ class PortraitView {
 
   _move(e) {
     if (!this._mode) {
-      this.canvas.style.cursor = this.hitJoint(this.getPos(e)) ? 'grab' : 'default';
+      // Hover feedback only.
+      if (this._interaction === 'pan' && this._imageLoaded) {
+        this.canvas.style.cursor = 'grab';
+      } else {
+        this.canvas.style.cursor = this.hitJoint(this.getPos(e)) ? 'grab' : 'default';
+      }
       return;
     }
+
     const st = this.store.state;
     const pos = this.getPos(e);
 
+    // Pan the uploaded reference image.
+    if (this._mode === 'pan') {
+      this._imageOffsetX += pos.x - this._lastPos.x;
+      this._imageOffsetY += pos.y - this._lastPos.y;
+      this._lastPos = pos;
+      this.render();
+      return;
+    }
+
     if (this._mode === 'scroll') {
+      const meta = st.personFrame;
+      // Horizontal drag pans the whole stick figure left/right.
+      if (meta.heightPx) {
+        this._panX += (e.clientX - this._lastX) / meta.heightPx;
+      }
       const dy = (e.clientY - this._lastY) / 40;
+      this._lastX = e.clientX;
       this._lastY = e.clientY;
       st.eyeHeightM = Math.max(0, st.eyeHeightM + dy);
       st.heightM = st.eyeHeightM;
@@ -207,8 +349,12 @@ class PortraitView {
   }
 
   _stop() {
+    if (this._mode === 'pan') {
+      this.canvas.style.cursor = 'grab';
+    } else {
+      this.canvas.style.cursor = 'default';
+    }
     this._mode = null; this._active = null;
-    this.canvas.style.cursor = 'default';
   }
 
   render() {
@@ -262,10 +408,22 @@ class PortraitView {
     st.personFrame.footY = footY;
     st.personFrame.heightPx = heightPx;
 
-    // Grid
+    // Grid (background reference).
     ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
     for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
     for (let j = 0; j < H; j += 40) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(W, j); ctx.stroke(); }
+
+    // Draw the uploaded reference image clipped to the orange frame.
+    if (this._imageLoaded && this._image) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(frameLeft, frameTop, fw, fh);
+      ctx.clip();
+      ctx.translate(this._imageOffsetX, this._imageOffsetY);
+      ctx.scale(this._imageScale, this._imageScale);
+      ctx.drawImage(this._image, 0, 0, this._image.naturalWidth, this._image.naturalHeight);
+      ctx.restore();
+    }
 
     if (footY > 0 && footY < H) {
       ctx.strokeStyle = '#334155';
@@ -287,12 +445,6 @@ class PortraitView {
     ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
     ctx.strokeRect(frameLeft, frameTop, fw, fh);
 
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(0, 0, W, frameTop);
-    ctx.fillRect(0, frameTop + fh, W, H - frameTop - fh);
-    ctx.fillRect(0, frameTop, frameLeft, fh);
-    ctx.fillRect(frameLeft + fw, frameTop, W - frameLeft - fw, fh);
-
     ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'right';
     ctx.fillText(i18n[st.shotTypeKey], W - 16, 32);
     ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif';
@@ -307,7 +459,8 @@ class PortraitView {
     const { cx, headY, heightPx } = st.personFrame;
     if (heightPx <= 0) return;
     const p = st.pose;
-    const toS = (j) => ({ x: cx + j.x * heightPx, y: headY + j.y * heightPx });
+    const panPx = this._panX * heightPx;
+    const toS = (j) => ({ x: cx + j.x * heightPx + panPx, y: headY + j.y * heightPx });
 
     // Internal topology: chest is stored as pose.neck, pelvis as pose.hip,
     // and the head is derived from the chest (no separate shoulder points).
@@ -338,7 +491,7 @@ class PortraitView {
       ['hip', 'leftKnee', this.BONE.limbW], ['leftKnee', 'leftFoot', this.BONE.limbW],
       ['hip', 'rightKnee', this.BONE.limbW], ['rightKnee', 'rightFoot', this.BONE.limbW]
     ];
-    ctx.strokeStyle = '#22c55e';
+    ctx.strokeStyle = this.COLORS.body;
     bones.forEach(([a, b, w]) => {
       ctx.lineWidth = w * heightPx;
       ctx.beginPath();
@@ -347,14 +500,14 @@ class PortraitView {
       ctx.stroke();
     });
 
-    // Head: filled circle with outline (demo style).
+    // Head: filled circle with outline (red).
     const headR = this.BONE.headR * heightPx;
-    ctx.fillStyle = '#fbbf24';
+    ctx.fillStyle = this.COLORS.head;
     ctx.beginPath(); ctx.arc(S.head.x, S.head.y, headR, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = this.COLORS.headStroke; ctx.lineWidth = 2; ctx.stroke();
 
-    // Joint dots (demo style).
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    // Joint dots.
+    ctx.fillStyle = this.COLORS.joint;
     const joints = ['neck', 'hip', 'leftElbow', 'rightElbow', 'leftKnee', 'rightKnee', 'leftHand', 'rightHand', 'leftFoot', 'rightFoot'];
     joints.forEach((k) => {
       ctx.beginPath(); ctx.arc(S[k].x, S[k].y, this.BONE.jointR, 0, Math.PI * 2); ctx.fill();

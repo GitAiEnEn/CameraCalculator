@@ -212,7 +212,7 @@
     el.distance.value = s.distanceM.toFixed(2);
     el.distanceRange.value = Math.round(Calc.sliderFromLog(s.distanceM, LOG.distance) * 1000);
     el.eyeHeight.value = s.eyeHeightM.toFixed(2);
-    el.aperture.value = s.aperture;
+    el.aperture.value = s.aperture.toFixed(1);
     el.apertureRange.value = Math.round(Calc.sliderFromLog(s.aperture, LOG.aperture) * 1000);
 
     // Framing lock UI state
@@ -388,6 +388,7 @@
 
     // View resets
     el.resetPortraitBtn.addEventListener('click', () => {
+      portraitView.resetPan();
       Object.assign(state, {
         autoOrient: true, dragging: false,
         angleH: 0, angleV: 0
@@ -427,14 +428,14 @@
     });
 
     el.resetDofBtn.addEventListener('click', () => {
-      el.aperture.value = DEFAULTS.aperture;
+      el.aperture.value = DEFAULTS.aperture.toFixed(1);
       el.apertureRange.value = 500;
       applyRawInputs();
     });
 
     el.resetBtn.addEventListener('click', () => {
       el.focal.value = DEFAULTS.focal; el.focalRange.value = 500;
-      el.aperture.value = DEFAULTS.aperture; el.apertureRange.value = 500;
+      el.aperture.value = DEFAULTS.aperture.toFixed(1); el.apertureRange.value = 500;
       el.distance.value = DEFAULTS.distance; el.distanceRange.value = 500;
       el.subjectType.value = DEFAULTS.subjectType;
       el.orientation.value = DEFAULTS.orientation;

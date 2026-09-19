@@ -497,6 +497,42 @@ body {
     display: block;
   }
 
+  .person-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .person-mode-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .person-mode-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .person-mode-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0b1220;
+    font-weight: 600;
+  }
+
+  .person-mode-btn.danger:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
   .view-reset-btn {
     margin-top: 10px;
     padding: 7px 16px;
