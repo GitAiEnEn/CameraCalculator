@@ -1,8 +1,9 @@
 /**
  * FieldVisualizationView.js
- * 景深可视化视图（类）
- * init(store) 绑定 store 与拖拽交互，render() 从 store 读取 dof 数据并绘制。
- * 支持拖动景深范围两端（近/远边界）来反向调整光圈大小。
+ * Depth-of-field visualization view (class)
+ * init(store) binds the store and drag interactions, render() reads DoF data
+ * from the store and draws it.
+ * Supports dragging the DoF range edges (near/far) to reverse-adjust aperture.
  */
 class FieldVisualizationView {
   constructor(canvas) {
@@ -10,7 +11,7 @@ class FieldVisualizationView {
     this.ctx = canvas.getContext('2d');
     this.store = null;
     this._drag = null;   // 'near' | 'far'
-    this._layout = null; // 最近一次绘制时的布局信息
+    this._layout = null; // Layout info from the most recent draw
   }
 
   init(store) {
@@ -62,7 +63,7 @@ class FieldVisualizationView {
       return;
     }
 
-    // 悬停反馈
+    // Hover feedback
     const pos = this.getPos(e);
     const L = this._layout;
     let cursor = 'default';
@@ -102,14 +103,14 @@ class FieldVisualizationView {
     this.canvas.style.cursor = 'default';
   }
 
-  // 由远景边界反推光圈：DoF 远边界 farMM = u(H-f)/(H-u)
+  // Reverse aperture from the far boundary: DoF far boundary farMM = u(H-f)/(H-u)
   _apertureFromFar(farMM, focal, coc, u) {
     if (farMM <= u || !(coc > 0)) return null;
     const H = u * (farMM - focal) / (farMM - u);
     return this._apertureFromH(H, focal, coc);
   }
 
-  // 由近景边界反推光圈：DoF 近边界 nearMM = u(H-f)/(H+u-2f)
+  // Reverse aperture from the near boundary: DoF near boundary nearMM = u(H-f)/(H+u-2f)
   _apertureFromNear(nearMM, focal, coc, u) {
     if (nearMM >= u || !(coc > 0)) return null;
     const H = (nearMM * (2 * focal - u) - u * focal) / (nearMM - u);
@@ -167,15 +168,15 @@ class FieldVisualizationView {
     ctx.beginPath(); ctx.arc(focusX, barY - 12, 4, 0, Math.PI * 2); ctx.fill();
 
     ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(t('dofRangeLabel'), pad, barY - 20);
+    ctx.fillText(i18n.dofRangeLabel, pad, barY - 20);
     ctx.textAlign = 'center'; ctx.fillStyle = '#f59e0b';
-    ctx.fillText(t('focusPoint') + ' ' + (focusMM / 1000).toFixed(2) + 'm', focusX, barY - 20);
+    ctx.fillText(i18n.focusPoint + ' ' + (focusMM / 1000).toFixed(2) + 'm', focusX, barY - 20);
 
     ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif';
     ctx.fillText(this.fmtDistance(dof.near), nearX, barY + barH + 16);
     ctx.fillText(this.fmtDistance(dof.far), farX, barY + barH + 16);
 
-    // 可拖拽的近/远边界手柄
+    // Draggable near/far boundary handles
     const handleY = barY + barH / 2;
     [[nearX, '#22c55e'], [farX, '#22c55e']].forEach(([hx, color]) => {
       ctx.fillStyle = color;
@@ -184,7 +185,7 @@ class FieldVisualizationView {
     });
 
     ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(t('dofDragHint'), 12, H - 12);
+    ctx.fillText(i18n.dofDragHint, 12, H - 12);
 
     this._layout = { pad, axisY, barY, barH, nearX, farX, focusX, distAt };
   }

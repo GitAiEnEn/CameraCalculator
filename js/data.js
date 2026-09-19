@@ -1,17 +1,17 @@
 /**
  * data.js
- * 中央数据模型（响应式状态）—— 所有数据的唯一来源。
+ * Central data model (reactive state) - the single source of truth.
  *
- * 职责：
- *  - 原始输入（焦距/光圈/距离/画幅/方向/被摄物等）
- *  - 相机位置、角度、高度
- *  - 人像骨骼姿态
- *  - 由原始输入派生的所有计算中间量（视角、视野、景别、景深、焦外等）
+ * Responsibilities:
+ *  - Raw inputs (focal length / aperture / distance / format / orientation / subject ...)
+ *  - Camera position, angle, height
+ *  - Portrait skeleton pose
+ *  - All derived intermediate values (FOV, framing, shot type, DoF, bokeh ...)
  *
- * 任何修改都应通过 Store.update() / Store.commit() 进行：
- *   update(patch) 合并原始输入后统一 recompute()；
- *   commit()      用于视图直接修改后的重新计算；
- * 两者都会 recompute() 然后 notify()，所有订阅组件立即响应。
+ * Any change should go through Store.update() / Store.commit():
+ *   update(patch) merges raw inputs then recomputes once;
+ *   commit()      recomputes after view-driven direct mutations;
+ * Both recompute() then notify(), so every subscribed component reacts.
  */
 
 (function (global) {
@@ -20,30 +20,30 @@
   const AVG_PERSON_HEIGHT = 1.7;
 
   const state = {
-    // ---------- 原始输入 ----------
+    // ---------- Raw inputs ----------
     sensor: null,          // { w, h, coc, pixels, name, nameEn, ... }
-    focal: 50,             // 焦距 (mm)
-    aperture: 4,           // 光圈 f 值
-    distanceM: 3,          // 对焦距离 = 拍摄距离 (m)
+    focal: 50,             // Focal length (mm)
+    aperture: 4,           // Aperture f-number
+    distanceM: 3,          // Focus distance = shooting distance (m)
     orientation: 'landscape', // 'landscape' | 'portrait'
     mode: 'person',        // 'person' | 'object'
-    subjectWidthRaw: 0.6,  // 物体水平宽度输入值 (m)
-    subjectHeightRaw: 1.7, // 物体垂直高度输入值 (m)
-    bgDistanceM: 10,       // 背景/焦外点距离 (m)
-    bgLightSizeM: 0,       // 焦外光源实际直径 (m)
+    subjectWidthRaw: 0.6,  // Object width input (m)
+    subjectHeightRaw: 1.7, // Object height input (m)
+    bgDistanceM: 10,       // Background / out-of-focus point distance (m)
+    bgLightSizeM: 0,       // Out-of-focus light source physical diameter (m)
     cocPreset: 'normal',   // '' | 'normal' | 'loose' | 'strict'
-    cocValue: 0.030,       // 自定义 CoC (mm)
-    eyeHeightM: 1.6,       // 相机相对地面高度 / 人像模式相机高度 (m)
-    heightM: 1.6,          // 物体模式相机高度 (m)
+    cocValue: 0.030,       // Custom CoC (mm)
+    eyeHeightM: 1.6,       // Camera height above ground / portrait-mode camera height (m)
+    heightM: 1.6,          // Object-mode camera height (m)
 
-    fovLock: false,        // 构图锁定
-    lockFrameM: null,      // 锁定时记录的垂直视野高度(米)
+    fovLock: false,        // Framing lock
+    lockFrameM: null,      // Vertical FOV height (m) recorded when locked
 
-    // ---------- 相机与场景 ----------
+    // ---------- Camera & scene ----------
     camX: 0,
     camY: 0,
-    angleH: 0,             // 水平参考角度
-    angleV: 0,             // 垂直参考角度（正=俯视）
+    angleH: 0,             // Horizontal reference angle
+    angleV: 0,             // Vertical reference angle (positive = looking down)
     autoOrient: true,
     dragging: false,
     scale: 60,
@@ -52,7 +52,7 @@
 
     avgPersonHeight: AVG_PERSON_HEIGHT,
 
-    // ---------- 人像构图视图 / 骨骼姿态 ----------
+    // ---------- Portrait framing view / skeleton pose ----------
     personView: { cropOffsetM: 0 },
     pose: {
       neck:       { x: 0.0,  y: 0.16 },
@@ -69,7 +69,7 @@
     },
     personFrame: { cx: 0, headY: 0, footY: 0, heightPx: 0 },
 
-    // ---------- 派生数据（由 recompute 统一计算） ----------
+    // ---------- Derived data (computed by recompute) ----------
     coc: 0.030,
     crop: 1,
     equivFocal: 50,
@@ -80,8 +80,8 @@
     fovHeightM: 1.44,
     verticalFovM: 1.44,
     shotTypeKey: 'shotTypeFS',
-    subjectW: 0.6,          // 实际被摄物宽度（人像固定 0.6）
-    subjectH: AVG_PERSON_HEIGHT, // 实际被摄物高度（人像固定身高）
+    subjectW: 0.6,          // Actual subject width (fixed 0.6 for person)
+    subjectH: AVG_PERSON_HEIGHT, // Actual subject height (fixed height for person)
     refHeightM: AVG_PERSON_HEIGHT,
     horizontalHeightM: 0.3,
     entrancePupilMm: 12.5,
@@ -90,7 +90,7 @@
     bokehMm: 0
   };
 
-  // ---------- 派生计算 ----------
+  // ---------- Derived computation ----------
   function resolveCoc() {
     if (!state.sensor) return state.cocValue;
     const p = state.cocPreset;
@@ -108,7 +108,7 @@
     const focal = state.focal;
     const aperture = state.aperture;
 
-    // 被摄物实际尺寸（人像固定）
+    // Actual subject size (fixed for person)
     if (state.mode === 'person') {
       state.subjectW = 0.6;
       state.subjectH = AVG_PERSON_HEIGHT;
@@ -119,7 +119,7 @@
     state.refHeightM = AVG_PERSON_HEIGHT;
     state.horizontalHeightM = state.subjectW / 2;
 
-    // 构图锁定：保持垂直视野高度不变，反推对焦距离
+    // Framing lock: keep vertical FOV height fixed, derive focus distance
     if (state.fovLock && state.lockFrameM != null) {
       const effSensor = state.orientation === 'portrait' ? sensor.w : sensor.h;
       state.distanceM = state.lockFrameM * focal / effSensor;
@@ -150,7 +150,7 @@
     );
     state.bokehBlurLevel = Calc.blurLevel(state.bokehMm, sensor.w).level;
 
-    // 相机位置（非拖动时由对焦距离 + 相机高度推导）
+    // Camera position (derived from focus distance + camera height when not dragging)
     if (!state.dragging) {
       state.camX = state.subjectX - state.distanceM * state.scale;
       const camH = state.mode === 'person' ? state.eyeHeightM : state.heightM;
@@ -170,7 +170,7 @@
     }
   }
 
-  // ---------- 订阅 / 通知 ----------
+  // ---------- Subscribe / notify ----------
   const listeners = new Set();
 
   function listen(fn) {
@@ -182,14 +182,14 @@
     listeners.forEach((fn) => { try { fn(state); } catch (e) { console.error(e); } });
   }
 
-  // 合并原始输入并重新计算
+  // Merge raw inputs and recompute
   function update(patch) {
     Object.assign(state, patch);
     recompute();
     notify();
   }
 
-  // 视图直接修改后重新计算并通知
+  // Recompute and notify after view-driven direct mutations
   function commit() {
     recompute();
     notify();
@@ -205,7 +205,7 @@
     notify,
     update,
     commit,
-    set: update, // 兼容旧写法
+    set: update, // legacy alias
     get,
     AVG_PERSON_HEIGHT
   };

@@ -1,6 +1,7 @@
 /**
  * check_i18n.js
- * 检查 HTML 中 data-i18n 键是否在 i18n.js 中都有中文和英文翻译
+ * Check that every data-i18n key in the HTML exists in both the Chinese and
+ * English translation dictionaries.
  *   node test/check_i18n.js
  */
 
@@ -11,11 +12,11 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const i18nSrc = fs.readFileSync(path.join(root, 'js', 'i18n.js'), 'utf8');
 
-// 提取 I18N 对象
-const fn = new Function(i18nSrc + '\nreturn I18N;');
-const I18N = fn();
+// Evaluate the i18n source and return the translations object.
+const fn = new Function(i18nSrc + '\nreturn translations;');
+const translations = fn();
 
-// 提取 HTML 中所有 data-i18n 键
+// Extract every data-i18n key from the HTML.
 const keyRegex = /data-i18n=["']([^"']+)["']/g;
 const keys = [];
 let m;
@@ -24,10 +25,10 @@ while ((m = keyRegex.exec(html)) !== null) {
 }
 const unique = [...new Set(keys)];
 
-const missing = unique.filter((k) => !(I18N.zh && k in I18N.zh) || !(I18N.en && k in I18N.en));
+const missing = unique.filter((k) => !(translations.zh && k in translations.zh) || !(translations.en && k in translations.en));
 
-console.log('HTML 中 data-i18n 键总数:', keys.length);
-console.log('去重后键数:', unique.length);
-console.log('缺失的翻译键:', missing.length === 0 ? '无（全部覆盖）✅' : missing);
+console.log('Total data-i18n keys in HTML:', keys.length);
+console.log('Unique keys:', unique.length);
+console.log('Missing translation keys:', missing.length === 0 ? 'None (fully covered) ✅' : missing);
 
 process.exit(missing.length === 0 ? 0 : 1);

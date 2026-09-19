@@ -1,15 +1,18 @@
 /**
  * i18n.js
- * 中英文双语支持
+ * Translation dictionary and proxy for Chinese / English UI strings.
+ *
+ * All user-visible strings are stored here. Access the current-language
+ * translation through the `i18n` proxy using camelCase keys, e.g. i18n.appTitle.
  */
 
-const I18N = {
+const translations = {
   zh: {
-    // 头部
+    // Header
     appTitle: '📷 相机拍摄计算器',
     subtitle: '拍摄距离 · 成像大小 · 景深 · 焦外光斑直径',
 
-    // 输入面板
+    // Input panel
     inputTitle: '参数输入',
     sensor: '画幅 / 传感器',
     focal: '焦距 (mm)',
@@ -39,7 +42,7 @@ const I18N = {
     tabDof: '景深',
     tabBokeh: '焦外',
 
-    // 结果面板
+    // Result panel
     resultTitle: '计算结果',
     shotType: '景别（当前构图）',
     shotTypeUnit: '大特写 / 特写 / 中近景 / 中景 / 中全景 / 全景 / 远景 / 大远景',
@@ -94,7 +97,7 @@ const I18N = {
     tiltAngle: '倾斜角度',
     personDragHint: '拖动人物上下调整取景位置',
 
-    // 公式
+    // Formula
     formulaTitle: '计算公式说明',
     fEquivTitle: '等效焦距',
     fEquivCode: 'f_equiv = f × 裁切系数',
@@ -109,7 +112,7 @@ const I18N = {
     fBokehDesc1: 'A 为入瞳直径 = f / N，u_bg 为背景距离',
     fBokehDesc2: '简化（远景）：B ≈ A × f / (u − f)',
 
-    // 单位
+    // Units
     unitMm: 'mm',
     unitDeg: '度',
     unitM: 'm',
@@ -119,14 +122,14 @@ const I18N = {
     unitTimes: '×',
     unitMmRatio: 'mm / 占画幅',
 
-    // 传感器信息
+    // Sensor info
     sensorInfo: (w, h, diag, crop, coc) =>
       `尺寸 ${w}×${h} mm · 对角线 ${diag} mm · 裁切系数 ${crop}× · CoC ${coc} mm`,
 
-    // 模糊等级
+    // Blur levels
     blurLevels: ['几乎不可见', '轻微', '可见', '明显', '强烈', '非常强烈', '奶油般虚化'],
 
-    // 可视化
+    // Visualization
     dofRangeLabel: '景深范围',
     focusPoint: '对焦点',
     dofConclusionLabel: '景深结论',
@@ -138,7 +141,7 @@ const I18N = {
     bokehLabel: (d, ratio, blur) =>
       `光斑直径 ${d} mm · 占画幅 ${ratio}% · ${blur}`,
 
-    // 场景可视化标注
+    // Scene visualization labels
     sceneCamera: '相机',
     sceneSubject: '被摄物',
     sceneDistance: '拍摄距离',
@@ -146,11 +149,11 @@ const I18N = {
     partialFrame: '部分在画面内',
     outFrame: '在画面外',
 
-    // 页脚
+    // Footer
     footer: '相机拍摄计算器 · 纯前端实现 · 所有计算在本地浏览器完成',
     formulaLink: '查看详细公式说明 →',
 
-    // 语言切换
+    // Language switch
     langLabel: '语言',
     langZh: '中文',
     langEn: 'English'
@@ -311,9 +314,12 @@ const I18N = {
 
 let currentLang = 'zh';
 
-function t(key) {
-  return I18N[currentLang][key];
-}
+// Proxy that returns the translation for the current language on every access.
+const i18n = new Proxy({}, {
+  get(_target, key) {
+    return translations[currentLang][key];
+  }
+});
 
 function setLang(lang) {
   currentLang = lang;

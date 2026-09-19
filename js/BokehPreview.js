@@ -1,7 +1,7 @@
 /**
  * BokehPreview.js
- * 焦外光斑预览视图（类）
- * init(store) 绑定 store，render() 从 store 读取数据并绘制。
+ * Bokeh spot preview view (class)
+ * init(store) binds the store, render() reads data from the store and draws it.
  */
 class BokehPreview {
   constructor(canvas) {
@@ -56,9 +56,9 @@ class BokehPreview {
     });
 
     ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'left';
-    const blurText = I18N[currentLang].blurLevels[(s.bokehBlurLevel || 1) - 1];
+    const blurText = i18n.blurLevels[(s.bokehBlurLevel || 1) - 1];
     ctx.fillText(
-      I18N[currentLang].bokehLabel(s.bokehMm.toFixed(3), (ratio * 100).toFixed(2), blurText),
+      i18n.bokehLabel(s.bokehMm.toFixed(3), (ratio * 100).toFixed(2), blurText),
       16, 26
     );
   }

@@ -1,14 +1,14 @@
 /**
  * app.js
- * 相机拍摄计算器 - 编排层（薄视图层）
+ * Camera Calculator - orchestration layer (thin view layer)
  *
- * 职责：
- *  - 读取输入控件 → Store.update() 写入 data model
- *  - 监听 Store 变化 → 渲染结果卡片与各视图
- *  - 移动端折叠、刻度线、语言切换、视图重置
+ * Responsibilities:
+ *  - Read input controls -> Store.update() writes into the data model
+ *  - Listen to Store changes -> render result cards and each view
+ *  - Mobile collapsing, tick marks, language switching, view reset
  *
- * 原则：所有数据（原始输入 + 派生值）都由 data.js 统一管理，
- *       组件只负责渲染，不各自计算/持有数据副本。
+ * Principle: all data (raw inputs + derived values) is managed by data.js.
+ * Components only render and never compute or hold their own data copies.
  */
 
 (function () {
@@ -73,14 +73,14 @@
   let syncingCoC = false;
   let lastDistanceM = DEFAULTS.distance;
 
-  // ---------- 视图实例 ----------
+  // ---------- View instances ----------
   const portraitView = new PortraitView(el.personCanvas);
   const topView = new CameraDistanceView(el.sceneTopCanvas, 'top', false);
   const sideView = new CameraDistanceView(el.sceneSideCanvas, 'side', true);
   const fieldView = new FieldVisualizationView(el.dofCanvas);
   const bokehView = new BokehPreview(el.bokehCanvas);
 
-  // ---------- 格式工具（仅用于展示） ----------
+  // ---------- Formatting helpers (display only) ----------
   function fmt(num, digits) {
     if (!isFinite(num)) return '∞';
     if (num === 0) return '0';
@@ -99,7 +99,7 @@
     return (m * 100).toFixed(1) + ' cm';
   }
 
-  // ---------- CoC 辅助 ----------
+  // ---------- CoC helpers ----------
   function applyPresetToCoC(sensor) {
     const preset = el.cocPreset.value;
     if (preset === 'normal' || preset === 'loose' || preset === 'strict') {
@@ -109,7 +109,7 @@
     }
   }
 
-  // ---------- 读取输入控件 → data model ----------
+  // ---------- Read input controls -> data model ----------
   function applyRawInputs() {
     const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
     if (!sensor) return;
@@ -142,7 +142,7 @@
     });
   }
 
-  // ---------- 同步背景距离（跟随对焦距离变化） ----------
+  // ---------- Sync background distance (follow focus distance changes) ----------
   function syncBgDistance() {
     const nd = parseFloat(el.distance.value);
     if (!isFinite(nd)) return;
@@ -158,7 +158,7 @@
     applyRawInputs();
   }
 
-  // ---------- 构图锁定 ----------
+  // ---------- Framing lock ----------
   function setCompLock(locked) {
     let lockFrameM = null;
     if (locked && state.sensor) {
@@ -170,14 +170,14 @@
     store.commit();
   }
 
-  // ---------- 渲染：结果卡片（全部从 state 读取） ----------
+  // ---------- Render: result cards (all read from state) ----------
   function renderResultCards() {
     const s = state;
     if (!s.sensor || !s.dof) return;
 
     if (s.sensor) {
       const diag = sensorDiagonal(s.sensor);
-      el.sensorInfo.textContent = I18N[currentLang].sensorInfo(
+      el.sensorInfo.textContent = i18n.sensorInfo(
         s.sensor.w, s.sensor.h, diag.toFixed(2), s.crop.toFixed(2), s.coc.toFixed(3)
       );
     }
@@ -200,22 +200,22 @@
     el.rDofRange.textContent = `${fmtDistance(s.dof.near)} ~ ${fmtDistance(s.dof.far)}`;
     el.rHyperfocal.textContent = fmtDistance(s.dof.hyperfocal);
     el.rEntrancePupil.textContent = fmt(s.entrancePupilMm, 2);
-    el.dofConclusion.textContent = t(Calc.dofConclusion(s.dof.total));
+    el.dofConclusion.textContent = i18n[Calc.dofConclusion(s.dof.total)];
 
     const bokehPx = s.bokehMm / pixelPitch(s.sensor);
     el.rBokehSensor.textContent = fmt(s.bokehMm, 3);
     el.rBokehRatio.textContent = ((s.bokehMm / s.sensor.w) * 100).toFixed(2);
     el.rBokehPixels.textContent = bokehPx >= 1000 ? bokehPx.toFixed(0) : bokehPx.toFixed(1);
-    el.rBokehBlur.textContent = `${s.bokehBlurLevel} · ${I18N[currentLang].blurLevels[s.bokehBlurLevel - 1]}`;
+    el.rBokehBlur.textContent = `${s.bokehBlurLevel} · ${i18n.blurLevels[s.bokehBlurLevel - 1]}`;
 
-    // 输入控件回写（数据模型 → 输入框）
+    // Write back to input controls (data model -> inputs)
     el.distance.value = s.distanceM.toFixed(2);
     el.distanceRange.value = Math.round(Calc.sliderFromLog(s.distanceM, LOG.distance) * 1000);
     el.eyeHeight.value = s.eyeHeightM.toFixed(2);
     el.aperture.value = s.aperture;
     el.apertureRange.value = Math.round(Calc.sliderFromLog(s.aperture, LOG.aperture) * 1000);
 
-    // 锁定 UI 状态
+    // Framing lock UI state
     el.compLockBtn.classList.toggle('active', s.fovLock);
     el.compLockBtn.setAttribute('aria-pressed', s.fovLock ? 'true' : 'false');
     if (el.compLockIcon) el.compLockIcon.textContent = s.fovLock ? '🔒' : '🔓';
@@ -238,7 +238,7 @@
     bokehView.render();
   }
 
-  // ---------- 显示模式 ----------
+  // ---------- Display mode ----------
   function updateModeVisibility() {
     const isPerson = el.subjectType.value === 'person';
     el.orientationWrap.hidden = !isPerson;
@@ -262,13 +262,13 @@
     updateModeVisibility();
   }
 
-  // ---------- 翻译 ----------
+  // ---------- Translation ----------
   function applyTranslations() {
     document.querySelectorAll('[data-i18n]').forEach((node) => {
       const key = node.getAttribute('data-i18n');
-      if (I18N[currentLang] && I18N[currentLang][key] != null) node.textContent = I18N[currentLang][key];
+      if (i18n[key] != null) node.textContent = i18n[key];
     });
-    document.title = t('appTitle') + ' | ' + t('subtitle');
+    document.title = i18n.appTitle + ' | ' + i18n.subtitle;
   }
 
   function rebuildSensorSelect() {
@@ -298,7 +298,7 @@
     }
   }
 
-  // ---------- 刻度线 ----------
+  // ---------- Tick marks ----------
   function renderTickBar(barEl, values, cfg, fmtLabel) {
     barEl.innerHTML = '';
     values.forEach((v) => {
@@ -315,7 +315,7 @@
     renderTickBar($('apertureTickBar'), [1.2, 1.4,1.8, 2.8, 4.0, 5.6, 8, 12, 22], LOG.aperture, (v) => 'f/' + v);
   }
 
-  // ---------- 移动端折叠 ----------
+  // ---------- Mobile collapsing ----------
   function setupMobileToggle() {
     const inputBtn = $('toggleInputBtn'), resultBtn = $('toggleResultBtn');
     const inputPanel = $('panelInput'), resultPanel = $('panelResult');
@@ -337,7 +337,7 @@
     update();
   }
 
-  // ---------- 输入绑定 ----------
+  // ---------- Input binding ----------
   function bindLogSync(numEl, rangeEl, cfg, onChange) {
     numEl.addEventListener('input', () => {
       const v = parseFloat(numEl.value);
@@ -386,7 +386,7 @@
 
     el.compLockBtn.addEventListener('click', () => setCompLock(!state.fovLock));
 
-    // 各视图重置
+    // View resets
     el.resetPortraitBtn.addEventListener('click', () => {
       Object.assign(state, {
         autoOrient: true, dragging: false,
@@ -467,7 +467,7 @@
     el.distanceRange.value = Math.round(Calc.sliderFromLog(parseFloat(el.distance.value), LOG.distance) * 1000);
   }
 
-  // ---------- 单一响应入口：data 变化 → 渲染所有组件 ----------
+  // ---------- Single reactive entry: data change -> render all components ----------
   store.listen(() => {
     renderResultCards();
     renderViews();
@@ -486,7 +486,7 @@
     applyTranslations();
     rebuildSensorSelect();
 
-    // 初始被摄物坐标（场景画布上的固定位置）
+    // Initial subject coordinates (fixed position on the scene canvas)
     const c = el.sceneTopCanvas;
     store.update({ subjectX: c.width * 0.78, subjectY: c.height * 0.8 });
 

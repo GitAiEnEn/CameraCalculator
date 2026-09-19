@@ -1,15 +1,15 @@
 /**
  * CameraDistanceView.js
- * 相机与被摄物距离视图（类）
- *   kind: 'top' 水平参考 | 'side' 垂直参考
- * init(store) 绑定 canvas 拖拽交互，render() 从 store 读取并绘制。
+ * Camera-to-subject distance view (class)
+ *   kind: 'top' horizontal reference | 'side' vertical reference
+ * init(store) binds canvas drag interactions, render() reads from store and draws.
  */
 class CameraDistanceView {
   constructor(canvas, kind, useVerticalFrame) {
     this.canvas = canvas;
     this.kind = kind;
-    // 该视图测量画面的方向：true = 垂直高度作为画面高度；
-    // false = 水平长度作为成像长度。
+    // Which frame direction this view measures: true = vertical height as the
+    // frame height; false = horizontal length as the imaging length.
     this.useVerticalFrame = useVerticalFrame !== false;
     this.ctx = canvas.getContext('2d');
     this.store = null;
@@ -41,7 +41,7 @@ class CameraDistanceView {
   }
 
   _down(e) {
-    // 构图锁定时禁用交互
+    // Disable interaction while framing lock is active
     if (this.store.state.fovLock) return;
     this._dragMode = this.hitTest(this.getPos(e));
     if (this._dragMode) {
@@ -59,7 +59,7 @@ class CameraDistanceView {
       s.autoOrient = false;
       s.camX = pos.x;
       s.camY = pos.y;
-      // 水平距离 → 对焦距离；垂直位置 → 相机高度
+      // Horizontal distance -> focus distance; vertical position -> camera height
       const newDist = Math.max(0.1, (s.subjectX - s.camX) / s.scale);
       s.heightM = Math.max(0, (s.subjectY - s.camY) / s.scale);
       if (s.mode === 'person') { s.eyeHeightM = s.heightM; }
@@ -90,7 +90,8 @@ class CameraDistanceView {
     const isTop = this.kind === 'top';
     const isPortrait = s.orientation === 'portrait';
 
-    // 画面竖直/水平方向对应的传感器尺寸（竖屏时画面旋转 90°，竖方向变为传感器宽度）
+    // Sensor dimension corresponding to the frame vertical/horizontal direction
+    // (in portrait the frame rotates 90deg, so vertical maps to sensor width)
     const sensorW = s.sensor ? s.sensor.w : 36;
     const sensorH = s.sensor ? s.sensor.h : 24;
     const focal = s.focal || 50;
@@ -104,23 +105,23 @@ class CameraDistanceView {
     const imagingLengthM = (frameSensorSize / focal) * distM;
     const angle = isTop ? s.angleH : s.angleV;
 
-    // 地面线
+    // Ground line
     ctx.strokeStyle = '#334155';
     ctx.beginPath(); ctx.moveTo(0, s.subjectY); ctx.lineTo(W, s.subjectY); ctx.stroke();
 
-    // 相机与主题连线
+    // Camera-to-subject connecting line
     ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(s.camX, s.camY); ctx.lineTo(s.subjectX, s.subjectY); ctx.stroke();
     ctx.setLineDash([]);
 
     const span = this.drawFovCone(fovDeg, angle);
 
-    // 被摄物在该视图方向上的长度（物体长度）
+    // Subject length along this view's measured direction
     const subjectLengthM = this.useVerticalFrame
       ? (isPerson ? (s.refHeightM || s.subjectH) : s.subjectH)
       : s.subjectW;
 
-    // 主题 + 构图状态
+    // Subject + framing status
     if (this.useVerticalFrame) {
       const hpx = Math.min(subjectLengthM * s.scale, H * 0.7);
       const extent = { top: s.subjectY - hpx, bottom: s.subjectY };
@@ -132,7 +133,7 @@ class CameraDistanceView {
     }
 
     ctx.fillStyle = '#e2e8f0'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(t('sceneSubject'), s.subjectX, s.subjectY + 28);
+    ctx.fillText(i18n.sceneSubject, s.subjectX, s.subjectY + 28);
 
     this.drawCamera(angle);
     this.drawAnnotations(fovDeg, imagingLengthM, subjectLengthM, isTop);
@@ -175,8 +176,7 @@ class CameraDistanceView {
     ctx.fillStyle = status === 'in' ? '#22c55e' : status === 'partial' ? '#f59e0b' : '#ef4444';
     ctx.fillRect(this.store.state.subjectX - halfW, extent.top, halfW * 2, extent.bottom - extent.top);
 
-    const txt = status === 'in' ? t('inFrame') : status === 'partial' ? t('partialFrame') : t('outFrame');
-    ctx.fillStyle = ctx.fillStyle;
+    const txt = status === 'in' ? i18n.inFrame : status === 'partial' ? i18n.partialFrame : i18n.outFrame;
     ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'right';
     ctx.fillText(txt, W - 12, 26);
   }
@@ -185,7 +185,7 @@ class CameraDistanceView {
     const s = this.store.state, ctx = this.ctx;
     ctx.fillStyle = '#f59e0b'; ctx.fillRect(s.camX - 9, s.camY - 9, 18, 18);
     ctx.fillStyle = '#e2e8f0'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(t('sceneCamera'), s.camX - 8, s.camY + 26);
+    ctx.fillText(i18n.sceneCamera, s.camX - 8, s.camY + 26);
     const hx = s.camX + Math.cos(angle) * 30, hy = s.camY + Math.sin(angle) * 30;
     ctx.fillStyle = '#f87171'; ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
@@ -195,13 +195,13 @@ class CameraDistanceView {
     const s = this.store.state, ctx = this.ctx;
     ctx.fillStyle = '#7dd3fc'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
     ctx.fillText((isHorizontal ? 'FOV H ' : 'FOV V ') + fovDeg.toFixed(1) + '°', 12, 22);
-    ctx.fillText(t('sceneDistance') + ' ' + (s.distanceM || 0).toFixed(2) + 'm', 12, 42);
+    ctx.fillText(i18n.sceneDistance + ' ' + (s.distanceM || 0).toFixed(2) + 'm', 12, 42);
     ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif';
     const camH = s.mode === 'person' ? (s.eyeHeightM != null ? s.eyeHeightM : s.heightM) : s.heightM;
-    ctx.fillText(t('camHeight') + ' ' + camH.toFixed(2) + 'm', 12, 62);
-    ctx.fillText(t('tiltAngle') + ' ' + ((isHorizontal ? s.angleH : s.angleV) * 180 / Math.PI).toFixed(1) + '°', 12, 82);
-    ctx.fillText(t('subjectLength') + ' ' + subjectLengthM.toFixed(2) + 'm', 12, 102);
-    ctx.fillText(t('imagingLength') + ' ' + imagingLengthM.toFixed(2) + 'm', 12, 122);
+    ctx.fillText(i18n.camHeight + ' ' + camH.toFixed(2) + 'm', 12, 62);
+    ctx.fillText(i18n.tiltAngle + ' ' + ((isHorizontal ? s.angleH : s.angleV) * 180 / Math.PI).toFixed(1) + '°', 12, 82);
+    ctx.fillText(i18n.subjectLength + ' ' + subjectLengthM.toFixed(2) + 'm', 12, 102);
+    ctx.fillText(i18n.imagingLength + ' ' + imagingLengthM.toFixed(2) + 'm', 12, 122);
   }
 }
 

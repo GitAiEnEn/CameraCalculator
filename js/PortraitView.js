@@ -1,10 +1,15 @@
 /**
  * PortraitView.js
- * 人像构图视图（类）
+ * Portrait framing view (class)
  *
- * init(store) 绑定 canvas 交互（关节拖拽 / 上下移动调整人眼高度）。
- * render()    从 store.state 读取模型并绘制。
- * 交互直接修改 store.state 并触发 store.commit() 统一重算。
+ * init(store) binds canvas interactions (joint dragging / vertical scroll to
+ * adjust eye height).
+ * render() reads the model from store.state and draws it.
+ * Interactions mutate store.state directly and call store.commit() to recompute.
+ *
+ * The stick figure uses a constraint-relaxation solver (inspired by the demo):
+ * the pelvis is the root anchor, arms attach at the chest, legs at the pelvis,
+ * and every bone keeps its initial length while a joint is dragged.
  */
 class PortraitView {
   constructor(canvas) {
@@ -12,73 +17,47 @@ class PortraitView {
     this.ctx = canvas.getContext('2d');
     this.store = null;
 
+    // Stick figure proportions (fractions of the on-screen person height).
     this.BONE = {
-      shoulderHalf: 0.06,
-      upperArm: 0.13,
-      foreArm: 0.14,
-      torso: 0.34,
-      thigh: 0.24,
-      shin: 0.24,
-      headR: 0.08
+      headR: 0.08,   // head radius
+      torsoW: 0.10,  // torso stroke width
+      limbW: 0.055,  // limb / neck stroke width
+      jointR: 4      // joint dot radius (px)
     };
+
+    // Rest pose used to lock each bone's initial length.
+    this.REFERENCE = {
+      chest: { x: 0.0, y: 0.16 },
+      pelvis: { x: 0.0, y: 0.50 },
+      leftElbow: { x: -0.14, y: 0.26 }, rightElbow: { x: 0.14, y: 0.26 },
+      leftHand: { x: -0.28, y: 0.38 }, rightHand: { x: 0.28, y: 0.38 },
+      leftKnee: { x: -0.03, y: 0.75 }, rightKnee: { x: 0.03, y: 0.75 },
+      leftFoot: { x: -0.08, y: 1.00 }, rightFoot: { x: 0.08, y: 1.00 }
+    };
+
+    // Constraint bones: torso, arms (upper + forearm), legs (thigh + shin).
+    // The head is derived from the chest and therefore not part of the solver.
+    this.BONES = [
+      ['pelvis', 'chest'],
+      ['chest', 'leftElbow'], ['leftElbow', 'leftHand'],
+      ['chest', 'rightElbow'], ['rightElbow', 'rightHand'],
+      ['pelvis', 'leftKnee'], ['leftKnee', 'leftFoot'],
+      ['pelvis', 'rightKnee'], ['rightKnee', 'rightFoot']
+    ];
+
+    this.BONE_LENGTHS = {};
+    this.BONES.forEach(([a, b]) => {
+      const dx = this.REFERENCE[a].x - this.REFERENCE[b].x;
+      const dy = this.REFERENCE[a].y - this.REFERENCE[b].y;
+      this.BONE_LENGTHS[a + ':' + b] = Math.hypot(dx, dy);
+    });
 
     this._mode = null;
     this._active = null;
     this._lastY = 0;
-    this._startPos = null;
-    this._backup = null;
   }
 
   clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
-  constrainDist(p, anchor, len) {
-    const dx = p.x - anchor.x, dy = p.y - anchor.y;
-    const d = Math.hypot(dx, dy) || 1e-6;
-    p.x = anchor.x + (dx / d) * len;
-    p.y = anchor.y + (dy / d) * len;
-  }
-
-  // 将 p 限制在 anchor 的 maxReach 范围内，保证四肢不会因拖拽被拉长。
-  clampReach(p, anchor, maxReach) {
-    const dx = p.x - anchor.x, dy = p.y - anchor.y;
-    const d = Math.hypot(dx, dy);
-    if (d <= maxReach) return;
-    const k = maxReach / d;
-    p.x = anchor.x + dx * k;
-    p.y = anchor.y + dy * k;
-  }
-
-  solveMiddle(anchor, end, l1, l2) {
-    const dx = end.x - anchor.x, dy = end.y - anchor.y;
-    let d = Math.hypot(dx, dy);
-    d = this.clamp(d, Math.abs(l1 - l2) + 1e-4, l1 + l2 - 1e-4);
-    const base = Math.atan2(dy, dx);
-    const cos2 = (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d);
-    const delta = Math.acos(this.clamp(cos2, -1, 1));
-    const c1 = { x: anchor.x + l1 * Math.cos(base + delta), y: anchor.y + l1 * Math.sin(base + delta) };
-    const c2 = { x: anchor.x + l1 * Math.cos(base - delta), y: anchor.y + l1 * Math.sin(base - delta) };
-    return Math.abs(c1.x) <= Math.abs(c2.x) ? c1 : c2;
-  }
-
-  sideShoulders() {
-    const p = this.store.state.pose;
-    return {
-      L: { x: p.neck.x - this.BONE.shoulderHalf, y: p.neck.y + 0.02 },
-      R: { x: p.neck.x + this.BONE.shoulderHalf, y: p.neck.y + 0.02 }
-    };
-  }
-
-  updateArmsFromEnds() {
-    const p = this.store.state.pose, B = this.BONE, sh = this.sideShoulders();
-    p.leftElbow = this.solveMiddle(sh.L, p.leftHand, B.upperArm, B.foreArm);
-    p.rightElbow = this.solveMiddle(sh.R, p.rightHand, B.upperArm, B.foreArm);
-  }
-
-  updateLegsFromEnds() {
-    const p = this.store.state.pose, B = this.BONE;
-    p.leftKnee = this.solveMiddle(p.hip, p.leftFoot, B.thigh, B.shin);
-    p.rightKnee = this.solveMiddle(p.hip, p.rightFoot, B.thigh, B.shin);
-  }
 
   init(store) {
     this.store = store;
@@ -113,21 +92,82 @@ class PortraitView {
     return null;
   }
 
-  clonePose() {
-    const keys = ['neck','hip','leftHand','rightHand','leftFoot','rightFoot','leftElbow','rightElbow','leftKnee','rightKnee'];
-    const p = this.store.state.pose, c = {};
-    keys.forEach((k) => { c[k] = { x: p[k].x, y: p[k].y }; });
-    return c;
-  }
-
   _down(e) {
-    // 构图锁定时禁用交互
+    // Disable interaction while framing lock is active
     if (this.store.state.fovLock) return;
     const pos = this.getPos(e);
     const j = this.hitJoint(pos);
     if (j) { this._mode = 'joint'; this._active = j; }
     else { this._mode = 'scroll'; this._lastY = e.clientY; }
     this.canvas.setPointerCapture(e.pointerId);
+  }
+
+  // Build mutable working copies of the figure nodes (pose space).
+  _workingNodes() {
+    const p = this.store.state.pose;
+    return {
+      chest: { x: p.neck.x, y: p.neck.y },
+      pelvis: { x: p.hip.x, y: p.hip.y },
+      leftElbow: { x: p.leftElbow.x, y: p.leftElbow.y },
+      rightElbow: { x: p.rightElbow.x, y: p.rightElbow.y },
+      leftHand: { x: p.leftHand.x, y: p.leftHand.y },
+      rightHand: { x: p.rightHand.x, y: p.rightHand.y },
+      leftKnee: { x: p.leftKnee.x, y: p.leftKnee.y },
+      rightKnee: { x: p.rightKnee.x, y: p.rightKnee.y },
+      leftFoot: { x: p.leftFoot.x, y: p.leftFoot.y },
+      rightFoot: { x: p.rightFoot.x, y: p.rightFoot.y }
+    };
+  }
+
+  _writeBack(nodes) {
+    const p = this.store.state.pose;
+    p.neck.x = nodes.chest.x; p.neck.y = nodes.chest.y;
+    p.hip.x = nodes.pelvis.x; p.hip.y = nodes.pelvis.y;
+    p.leftElbow.x = nodes.leftElbow.x; p.leftElbow.y = nodes.leftElbow.y;
+    p.rightElbow.x = nodes.rightElbow.x; p.rightElbow.y = nodes.rightElbow.y;
+    p.leftHand.x = nodes.leftHand.x; p.leftHand.y = nodes.leftHand.y;
+    p.rightHand.x = nodes.rightHand.x; p.rightHand.y = nodes.rightHand.y;
+    p.leftKnee.x = nodes.leftKnee.x; p.leftKnee.y = nodes.leftKnee.y;
+    p.rightKnee.x = nodes.rightKnee.x; p.rightKnee.y = nodes.rightKnee.y;
+    p.leftFoot.x = nodes.leftFoot.x; p.leftFoot.y = nodes.leftFoot.y;
+    p.rightFoot.x = nodes.rightFoot.x; p.rightFoot.y = nodes.rightFoot.y;
+  }
+
+  // Constraint-relaxation solver: move one joint and keep every bone length.
+  solveRelaxation(activeKey, target) {
+    const nodes = this._workingNodes();
+
+    // Head is driven by the chest, so dragging it moves the chest/neck.
+    const pinned =
+      activeKey === 'head' ? 'chest' :
+      activeKey === 'neck' ? 'chest' :
+      activeKey === 'hip' ? 'pelvis' : activeKey;
+
+    // Anchor the pelvis when dragging the upper body/limbs; anchor the chest
+    // when dragging the pelvis so the rest of the body stays put.
+    const root = pinned === 'pelvis' ? 'chest' : 'pelvis';
+
+    nodes[pinned].x = target.x;
+    nodes[pinned].y = target.y;
+
+    for (let pass = 0; pass < 45; pass++) {
+      this.BONES.forEach(([aName, bName]) => {
+        const a = nodes[aName], b = nodes[bName];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len = Math.hypot(dx, dy) || 1e-6;
+        const correction = (len - this.BONE_LENGTHS[aName + ':' + bName]) / len;
+        const aFixed = aName === root || aName === pinned;
+        const bFixed = bName === root || bName === pinned;
+        if (aFixed && bFixed) return;
+        if (aFixed) { b.x -= dx * correction; b.y -= dy * correction; }
+        else if (bFixed) { a.x += dx * correction; a.y += dy * correction; }
+        else { a.x += dx * correction * 0.5; a.y += dy * correction * 0.5; b.x -= dx * correction * 0.5; b.y -= dy * correction * 0.5; }
+      });
+      nodes[pinned].x = target.x;
+      nodes[pinned].y = target.y;
+    }
+
+    this._writeBack(nodes);
   }
 
   _move(e) {
@@ -137,7 +177,6 @@ class PortraitView {
     }
     const st = this.store.state;
     const pos = this.getPos(e);
-    const meta = st.personFrame;
 
     if (this._mode === 'scroll') {
       const dy = (e.clientY - this._lastY) / 40;
@@ -149,49 +188,21 @@ class PortraitView {
       return;
     }
 
+    const meta = st.personFrame;
     if (!meta.heightPx) return;
     const nx = (pos.x - meta.cx) / meta.heightPx;
-    const ny = this.clamp((pos.y - meta.headY) / meta.heightPx, 0, 1);
-    const p = st.pose;
+    let ny = this.clamp((pos.y - meta.headY) / meta.heightPx, 0, 1);
 
+    // Keep the same per-joint range limits as the previous behavior.
     if (this._active === 'head' || this._active === 'neck') {
-      p.neck.x = nx; p.neck.y = this.clamp(ny, 0.05, 0.3);
-      this.constrainDist(p.hip, p.neck, this.BONE.torso);
-      this.updateArmsFromEnds(); this.updateLegsFromEnds();
+      ny = this.clamp(ny, 0.05, 0.3);
     } else if (this._active === 'hip') {
-      p.hip.x = nx; p.hip.y = this.clamp(ny, 0.3, 0.8);
-      this.constrainDist(p.neck, p.hip, this.BONE.torso);
-      this.updateLegsFromEnds();
-    } else if (this._active === 'leftHand' || this._active === 'rightHand') {
-      p[this._active].x = nx; p[this._active].y = ny;
-      const sh = this.sideShoulders();
-      const shoulder = this._active.startsWith('left') ? sh.L : sh.R;
-      this.clampReach(p[this._active], shoulder, this.BONE.upperArm + this.BONE.foreArm);
-      this.updateArmsFromEnds();
+      ny = this.clamp(ny, 0.3, 0.8);
     } else if (this._active === 'leftFoot' || this._active === 'rightFoot') {
-      p[this._active].x = nx; p[this._active].y = this.clamp(ny, 0.5, 1);
-      this.clampReach(p[this._active], p.hip, this.BONE.thigh + this.BONE.shin);
-      this.updateLegsFromEnds();
-    } else if (this._active === 'leftElbow' || this._active === 'rightElbow') {
-      const sh = this.sideShoulders();
-      const shoulder = this._active.startsWith('left') ? sh.L : sh.R;
-      const handKey = this._active.startsWith('left') ? 'leftHand' : 'rightHand';
-      const e = p[this._active]; e.x = nx; e.y = ny;
-      this.constrainDist(e, shoulder, this.BONE.upperArm);
-      const h = p[handKey];
-      const d = Math.hypot(h.x - e.x, h.y - e.y) || 1e-6;
-      h.x = e.x + ((h.x - e.x) / d) * this.BONE.foreArm;
-      h.y = e.y + ((h.y - e.y) / d) * this.BONE.foreArm;
-    } else if (this._active === 'leftKnee' || this._active === 'rightKnee') {
-      const footKey = this._active.startsWith('left') ? 'leftFoot' : 'rightFoot';
-      const k = p[this._active]; k.x = nx; k.y = ny;
-      this.constrainDist(k, p.hip, this.BONE.thigh);
-      const f = p[footKey];
-      const d = Math.hypot(f.x - k.x, f.y - k.y) || 1e-6;
-      f.x = k.x + ((f.x - k.x) / d) * this.BONE.shin;
-      f.y = k.y + ((f.y - k.y) / d) * this.BONE.shin;
+      ny = Math.max(ny, 0.5);
     }
 
+    this.solveRelaxation(this._active, { x: nx, y: ny });
     this.store.commit();
   }
 
@@ -223,14 +234,16 @@ class PortraitView {
     const frameCenterY = frameTop + fh / 2;
     const camHeightM = eyeH + st.personView.cropOffsetM;
 
-    // 相机垂直倾斜角度（Canvas 约定：正 = 俯视/向下），人像构图视图随之变化。
+    // Camera vertical tilt (canvas convention: positive = looking down/downward).
     const tilt = st.angleV || 0;
     const distM = st.distanceM || 3;
-    // 竖屏时取景框“垂直”方向实际对应传感器的水平视角。
+    // In portrait orientation the "vertical" direction on the frame actually
+    // corresponds to the sensor's horizontal FOV.
     const verticalFovDeg = isPortrait ? (st.fovHdeg || 39.6) : (st.fovVdeg || 27);
     const halfFovRad = verticalFovDeg * Math.PI / 360;
 
-    // 透视投影：世界高度 wm（位于相机前方 distM 平面）→ 屏幕 y
+    // Perspective projection: world height wm (on the plane distM ahead of the
+    // camera) -> screen y
     const worldToScreenY = (wm) => {
       const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
       const d = distM * cosT - (wm - camHeightM) * sinT;
@@ -249,7 +262,7 @@ class PortraitView {
     st.personFrame.footY = footY;
     st.personFrame.heightPx = heightPx;
 
-    // 网格
+    // Grid
     ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
     for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
     for (let j = 0; j < H; j += 40) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(W, j); ctx.stroke(); }
@@ -265,7 +278,7 @@ class PortraitView {
         ctx.beginPath(); ctx.moveTo(0, eyeY); ctx.lineTo(W, eyeY); ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = '#f472b6'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
-        ctx.fillText(t('eyeHeight') + ' ' + eyeH.toFixed(2) + 'm', 8, eyeY - 6);
+        ctx.fillText(i18n.eyeHeight + ' ' + eyeH.toFixed(2) + 'm', 8, eyeY - 6);
       }
     }
 
@@ -281,12 +294,12 @@ class PortraitView {
     ctx.fillRect(frameLeft + fw, frameTop, W - frameLeft - fw, fh);
 
     ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText(t(st.shotTypeKey), W - 16, 32);
+    ctx.fillText(i18n[st.shotTypeKey], W - 16, 32);
     ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif';
-    ctx.fillText(t('fovHeight') + ' ' + st.verticalFovM.toFixed(2) + 'm', W - 16, 52);
+    ctx.fillText(i18n.fovHeight + ' ' + st.verticalFovM.toFixed(2) + 'm', W - 16, 52);
 
     ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(t('personDragHint'), 12, H - 12);
+    ctx.fillText(i18n.personDragHint, 12, H - 12);
   }
 
   drawSkeleton() {
@@ -295,49 +308,58 @@ class PortraitView {
     if (heightPx <= 0) return;
     const p = st.pose;
     const toS = (j) => ({ x: cx + j.x * heightPx, y: headY + j.y * heightPx });
-    const shoulderL = { x: p.neck.x - this.BONE.shoulderHalf, y: p.neck.y + 0.02 };
-    const shoulderR = { x: p.neck.x + this.BONE.shoulderHalf, y: p.neck.y + 0.02 };
+
+    // Internal topology: chest is stored as pose.neck, pelvis as pose.hip,
+    // and the head is derived from the chest (no separate shoulder points).
+    const chest = { x: p.neck.x, y: p.neck.y };
+    const pelvis = { x: p.hip.x, y: p.hip.y };
+    const head = { x: chest.x, y: chest.y - this.BONE.headR };
 
     const S = {
-      neck: toS(p.neck), hip: toS(p.hip),
+      neck: toS(chest),
+      hip: toS(pelvis),
+      head: toS(head),
       leftHand: toS(p.leftHand), rightHand: toS(p.rightHand),
       leftFoot: toS(p.leftFoot), rightFoot: toS(p.rightFoot),
       leftElbow: toS(p.leftElbow), rightElbow: toS(p.rightElbow),
-      leftKnee: toS(p.leftKnee), rightKnee: toS(p.rightKnee),
-      shoulderL: toS(shoulderL), shoulderR: toS(shoulderR),
-      head: { x: toS(p.neck).x, y: toS(p.neck).y - this.BONE.headR * heightPx }
+      leftKnee: toS(p.leftKnee), rightKnee: toS(p.rightKnee)
     };
     p._screen = S;
 
-    const torsoW = heightPx * 0.10, limbW = heightPx * 0.06;
     const ctx = this.ctx;
-    ctx.strokeStyle = '#22c55e'; ctx.lineCap = 'round';
+    ctx.lineCap = 'round';
 
-    ctx.lineWidth = torsoW;
-    ctx.beginPath(); ctx.moveTo(S.neck.x, S.neck.y); ctx.lineTo(S.hip.x, S.hip.y); ctx.stroke();
+    // Draw bones in the demo's layered style: thick torso, thinner limbs.
+    const bones = [
+      ['hip', 'neck', this.BONE.torsoW],
+      ['neck', 'head', this.BONE.limbW],
+      ['neck', 'leftElbow', this.BONE.limbW], ['leftElbow', 'leftHand', this.BONE.limbW],
+      ['neck', 'rightElbow', this.BONE.limbW], ['rightElbow', 'rightHand', this.BONE.limbW],
+      ['hip', 'leftKnee', this.BONE.limbW], ['leftKnee', 'leftFoot', this.BONE.limbW],
+      ['hip', 'rightKnee', this.BONE.limbW], ['rightKnee', 'rightFoot', this.BONE.limbW]
+    ];
+    ctx.strokeStyle = '#22c55e';
+    bones.forEach(([a, b, w]) => {
+      ctx.lineWidth = w * heightPx;
+      ctx.beginPath();
+      ctx.moveTo(S[a].x, S[a].y);
+      ctx.lineTo(S[b].x, S[b].y);
+      ctx.stroke();
+    });
 
-    ctx.lineWidth = limbW;
-    ctx.beginPath();
-    ctx.moveTo(S.shoulderL.x, S.shoulderL.y); ctx.lineTo(S.leftElbow.x, S.leftElbow.y); ctx.lineTo(S.leftHand.x, S.leftHand.y);
-    ctx.moveTo(S.shoulderR.x, S.shoulderR.y); ctx.lineTo(S.rightElbow.x, S.rightElbow.y); ctx.lineTo(S.rightHand.x, S.rightHand.y);
-    ctx.stroke();
-
-    ctx.lineWidth = limbW * 1.15;
-    ctx.beginPath();
-    ctx.moveTo(S.hip.x, S.hip.y); ctx.lineTo(S.leftKnee.x, S.leftKnee.y); ctx.lineTo(S.leftFoot.x, S.leftFoot.y);
-    ctx.moveTo(S.hip.x, S.hip.y); ctx.lineTo(S.rightKnee.x, S.rightKnee.y); ctx.lineTo(S.rightFoot.x, S.rightFoot.y);
-    ctx.stroke();
-
+    // Head: filled circle with outline (demo style).
     const headR = this.BONE.headR * heightPx;
     ctx.fillStyle = '#fbbf24';
     ctx.beginPath(); ctx.arc(S.head.x, S.head.y, headR, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.stroke();
 
+    // Joint dots (demo style).
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    [S.neck, S.hip, S.leftElbow, S.rightElbow, S.leftKnee, S.rightKnee,
-     S.leftHand, S.rightHand, S.leftFoot, S.rightFoot].forEach((j) => {
-      ctx.beginPath(); ctx.arc(j.x, j.y, 4, 0, Math.PI * 2); ctx.fill();
+    const joints = ['neck', 'hip', 'leftElbow', 'rightElbow', 'leftKnee', 'rightKnee', 'leftHand', 'rightHand', 'leftFoot', 'rightFoot'];
+    joints.forEach((k) => {
+      ctx.beginPath(); ctx.arc(S[k].x, S[k].y, this.BONE.jointR, 0, Math.PI * 2); ctx.fill();
     });
+
     ctx.lineCap = 'butt';
   }
 }

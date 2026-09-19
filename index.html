@@ -15,8 +15,8 @@
     </div>
     <div class="lang-switch">
       <span class="lang-label" data-i18n="langLabel">语言</span>
-      <button class="lang-btn active" data-lang="zh">中文</button>
-      <button class="lang-btn" data-lang="en">English</button>
+      <button class="lang-btn active" data-lang="zh" data-i18n="langZh">中文</button>
+      <button class="lang-btn" data-lang="en" data-i18n="langEn">English</button>
     </div>
   </div>
 </header>
@@ -28,7 +28,7 @@
 
 <main class="app-main">
 
-  <!-- ============ 输入面板 ============ -->
+  <!-- ============ Input panel ============ -->
   <section class="panel panel-input" id="panelInput">
     <h2 data-i18n="inputTitle">参数输入</h2>
 
@@ -64,7 +64,7 @@
       <input type="range" id="distanceRange" min="0" max="1000" step="1" value="500" class="slider">
     </div>
 
-    <!-- 基本：被摄物类型与画面方向 -->
+    <!-- Basic: subject type and orientation -->
     <div class="field-group" data-group="basic">
       <div class="row-2">
         <div class="subj-col">
@@ -91,7 +91,7 @@
       </div>
     </div>
 
-    <!-- 基本：物体尺寸 -->
+    <!-- Basic: object size -->
     <div class="field-group" data-group="basic" id="subjectSizeGroup">
       <label data-i18n="subjectSizeGroup">被摄物尺寸 (m)</label>
       <div class="row-2">
@@ -107,7 +107,7 @@
       <div class="hint" data-i18n="subjectSizeHint">用于计算成像大小及构图（如人物宽 0.6m、高 1.7m）</div>
     </div>
 
-    <!-- 景深：CoC -->
+    <!-- Depth of field: CoC -->
     <div class="field-group" data-group="dof" hidden>
       <div class="row-2">
         <div class="subj-col">
@@ -127,7 +127,7 @@
       <div class="hint" data-i18n="cocHint">CoC 越小 = 对清晰度要求越严格，计算的景深越浅</div>
     </div>
 
-    <!-- 焦外 -->
+    <!-- Bokeh -->
     <div class="field-group" data-group="bokeh" hidden>
       <div class="row-2">
         <div class="subj-col">
@@ -145,7 +145,7 @@
     <button id="resetBtn" class="btn-secondary" data-i18n="reset">重置默认值</button>
   </section>
 
-  <!-- ============ 结果面板 ============ -->
+  <!-- ============ Result panel ============ -->
   <section class="panel panel-result" id="panelResult">
     <h2 data-i18n="resultTitle">计算结果</h2>
 
@@ -155,7 +155,7 @@
       <button class="tab-btn" data-tab="bokeh" data-i18n="tabBokeh">焦外</button>
     </div>
 
-    <!-- 基本 -->
+    <!-- Basic -->
     <div class="tab-panel active" id="tab-basic">
       <div class="result-grid" id="objectCards">
         <div class="card">
@@ -201,30 +201,30 @@
       </div>
 
       <div class="scene-row">
-        <!-- 人像构图视图（仅人像模式显示） -->
+        <!-- Portrait framing view (person mode only) -->
         <div class="visual-wrap" id="personSceneWrap">
           <h3 class="section-title" data-i18n="scenePersonVisual">人像构图视图</h3>
           <canvas id="personCanvas" width="420" height="560"></canvas>
           <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
         </div>
 
-        <!-- 俯视图水平参考（仅物体模式显示） -->
+        <!-- Top view horizontal reference (object mode only) -->
         <div class="visual-wrap" id="topViewWrap" hidden>
           <h3 class="section-title" data-i18n="sceneTopVisual">俯视图：相机与被摄物距离</h3>
           <canvas id="sceneTopCanvas" width="640" height="853"></canvas>
           <button class="view-reset-btn" id="resetTopBtn" type="button" data-i18n="viewReset">重置</button>
         </div>
 
-        <!-- 俯视图垂直参考（人像与物体共用） -->
+        <!-- Side view vertical reference (shared by person and object modes) -->
         <div class="visual-wrap" id="sideViewWrap">
-          <h3 class="section-title" data-i18n="sceneTopVisual">俯视图：相机与被摄物距离</h3>
+          <h3 class="section-title" data-i18n="sceneSideVisual">侧视图：被摄物高度 · 垂直视角</h3>
           <canvas id="sceneSideCanvas" width="640" height="853"></canvas>
           <button class="view-reset-btn" id="resetSideBtn" type="button" data-i18n="viewReset">重置</button>
         </div>
       </div>
     </div>
 
-    <!-- 景深 -->
+    <!-- Depth of field -->
     <div class="tab-panel" id="tab-dof">
       <div class="result-grid">
         <div class="card highlight">
@@ -271,7 +271,7 @@
       </div>
     </div>
 
-    <!-- 焦外 -->
+    <!-- Bokeh -->
     <div class="tab-panel" id="tab-bokeh">
       <div class="result-grid">
         <div class="card highlight">
