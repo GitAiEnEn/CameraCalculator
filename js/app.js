@@ -72,6 +72,8 @@
 
   let syncingCoC = false;
   let lastDistanceM = DEFAULTS.distance;
+  let activeResultTab = 'basic';
+  let activeInputGroup = 'basic';
 
   // ---------- View instances ----------
   const portraitView = new PortraitView(el.personCanvas);
@@ -258,14 +260,33 @@
     if (el.personImagingCard) el.personImagingCard.hidden = !isPerson;
   }
 
+  function updateInputGroups() {
+    const isMobile = window.matchMedia('(max-width: 600px)').matches;
+    const target = isMobile ? activeInputGroup : activeResultTab;
+    document.querySelectorAll('.panel-input [data-group]').forEach((g) => {
+      g.hidden = g.getAttribute('data-group') !== target;
+    });
+  }
+
   function switchTab(tab) {
+    activeResultTab = tab;
     document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + tab));
-    const isMobile = window.matchMedia('(max-width: 600px)').matches;
-    document.querySelectorAll('[data-group]').forEach((g) => {
-      g.hidden = isMobile ? false : (g.getAttribute('data-group') !== tab);
-    });
+    updateInputGroups();
     updateModeVisibility();
+  }
+
+  function setupMobileSubtabs() {
+    document.querySelectorAll('.mobile-subtab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeInputGroup = btn.getAttribute('data-mobile-group');
+        document.querySelectorAll('.mobile-subtab-btn').forEach((b) =>
+          b.classList.toggle('active', b.getAttribute('data-mobile-group') === activeInputGroup)
+        );
+        updateInputGroups();
+      });
+    });
+    window.addEventListener('resize', updateInputGroups);
   }
 
   // ---------- Translation ----------
@@ -495,6 +516,7 @@
     applyRawInputs();
     populateTicks();
     setupMobileToggle();
+    setupMobileSubtabs();
   }
 
   if (document.readyState === 'loading') {

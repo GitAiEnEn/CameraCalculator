@@ -190,6 +190,7 @@ class PortraitView {
   _down(e) {
     // Disable interaction while framing lock is active
     if (this.store.state.fovLock) return;
+    if (e.cancelable) e.preventDefault();
     const pos = this.getPos(e);
 
     // In pan mode (with an image loaded), dragging pans the image.
@@ -210,6 +211,7 @@ class PortraitView {
   }
 
   _move(e) {
+    if (this._active && e.cancelable) e.preventDefault();
     const pos = this.getPos(e);
 
     // No active interaction: just update the hover cursor.

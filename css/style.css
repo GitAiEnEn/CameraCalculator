@@ -327,6 +327,38 @@ body {
   line-height: 1.5;
 }
 
+/* 移动端参数分组子标签（基本 / 景深 / 焦外） */
+.mobile-subtabs {
+  display: none;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.mobile-subtab-btn {
+  flex: 1;
+  padding: 8px 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mobile-subtab-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mobile-subtab-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1220;
+  font-weight: 600;
+}
+
 /* 双列输入 */
 .row-2 {
   display: grid;
@@ -506,6 +538,14 @@ body {
     border-radius: 10px;
     border: 1px solid var(--border);
     display: block;
+  }
+
+  /* 火柴人交互画布：阻止触摸手势触发页面滚动 */
+  #personCanvas {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
   .person-toolbar {
@@ -689,6 +729,9 @@ body {
   .mobile-nav {
     display: flex;
   }
+  .mobile-subtabs {
+    display: flex;
+  }
   .app-header {
     padding: 18px 14px 14px;
   }
@@ -752,6 +795,18 @@ body {
   .visual-wrap canvas {
     width: 100%;
     height: auto;
+  }
+
+  /* 手机端俯视图/侧视图单列堆叠时，缩减其高度（保持原始比例居中），
+     人像构图视图保持全宽以方便拖动操作。 */
+  #sceneTopCanvas,
+  #sceneSideCanvas {
+    width: auto;
+    max-width: 100%;
+    height: 40vh;
+    max-height: 380px;
+    margin: 0 auto;
+    display: block;
   }
 }
 
