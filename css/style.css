@@ -25,6 +25,10 @@
   padding: 0;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html, body {
   height: 100%;
 }
@@ -70,6 +74,13 @@ body {
   color: var(--text-dim);
   font-size: 14px;
   margin-top: 4px;
+}
+
+.author {
+  color: var(--text-mute);
+  font-size: 12px;
+  margin-top: 2px;
+  font-style: italic;
 }
 
 /* ---------- 语言切换 ---------- */
@@ -500,8 +511,13 @@ body {
   .person-toolbar {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
     margin-bottom: 10px;
+  }
+
+  .person-toolbar .view-reset-btn {
+    margin-top: 0;
   }
 
   .person-mode-btn {

@@ -208,11 +208,17 @@
     el.rBokehPixels.textContent = bokehPx >= 1000 ? bokehPx.toFixed(0) : bokehPx.toFixed(1);
     el.rBokehBlur.textContent = `${s.bokehBlurLevel} · ${i18n.blurLevels[s.bokehBlurLevel - 1]}`;
 
-    // Write back to input controls (data model -> inputs)
+    // Write back to input controls (data model -> inputs).
+    // Skip the numeric inputs that the user is actively editing, otherwise the
+    // store roundtrip would clobber their typing (notably the aperture field).
     el.distance.value = s.distanceM.toFixed(2);
     el.distanceRange.value = Math.round(Calc.sliderFromLog(s.distanceM, LOG.distance) * 1000);
-    el.eyeHeight.value = s.eyeHeightM.toFixed(2);
-    el.aperture.value = s.aperture.toFixed(1);
+    if (document.activeElement !== el.eyeHeight) {
+      el.eyeHeight.value = s.eyeHeightM.toFixed(2);
+    }
+    if (document.activeElement !== el.aperture) {
+      el.aperture.value = s.aperture.toFixed(2);
+    }
     el.apertureRange.value = Math.round(Calc.sliderFromLog(s.aperture, LOG.aperture) * 1000);
 
     // Framing lock UI state
@@ -388,22 +394,10 @@
 
     // View resets
     el.resetPortraitBtn.addEventListener('click', () => {
-      portraitView.resetPan();
+      portraitView.reset();
       Object.assign(state, {
         autoOrient: true, dragging: false,
         angleH: 0, angleV: 0
-      });
-      Object.assign(state.pose, {
-        neck: { x: 0.0, y: 0.16 },
-        hip: { x: 0.0, y: 0.50 },
-        leftHand: { x: -0.28, y: 0.38 },
-        rightHand: { x: 0.28, y: 0.38 },
-        leftFoot: { x: -0.08, y: 1.00 },
-        rightFoot: { x: 0.08, y: 1.00 },
-        leftElbow: { x: -0.14, y: 0.26 },
-        rightElbow: { x: 0.14, y: 0.26 },
-        leftKnee: { x: -0.03, y: 0.75 },
-        rightKnee: { x: 0.03, y: 0.75 }
       });
       state.personView.cropOffsetM = 0;
       state.eyeHeightM = DEFAULTS.eyeHeight;

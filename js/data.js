@@ -5,7 +5,7 @@
  * Responsibilities:
  *  - Raw inputs (focal length / aperture / distance / format / orientation / subject ...)
  *  - Camera position, angle, height
- *  - Portrait skeleton pose
+ *  - Portrait figure relative position (joints are private to StickMan)
  *  - All derived intermediate values (FOV, framing, shot type, DoF, bokeh ...)
  *
  * Any change should go through Store.update() / Store.commit():
@@ -52,21 +52,11 @@
 
     avgPersonHeight: AVG_PERSON_HEIGHT,
 
-    // ---------- Portrait framing view / skeleton pose ----------
-    personView: { cropOffsetM: 0 },
-    pose: {
-      neck:       { x: 0.0,  y: 0.16 },
-      hip:        { x: 0.0,  y: 0.50 },
-      leftHand:   { x: -0.28, y: 0.38 },
-      rightHand:  { x: 0.28,  y: 0.38 },
-      leftFoot:   { x: -0.08, y: 1.00 },
-      rightFoot:  { x: 0.08,  y: 1.00 },
-      leftElbow:  { x: -0.14, y: 0.26 },
-      rightElbow: { x: 0.14,  y: 0.26 },
-      leftKnee:   { x: -0.03, y: 0.75 },
-      rightKnee:  { x: 0.03,  y: 0.75 },
-      _screen: {}
-    },
+    // ---------- Portrait framing view / skeleton relative position ----------
+    // The stick figure's joints are private to the StickMan engine (stickMan.js).
+    // Only the figure's relative position (horizontal pan) lives in the shared
+    // data model; the mirrored vertical offset is written to eyeHeightM.
+    personView: { cropOffsetM: 0, panX: 0 },
     personFrame: { cx: 0, headY: 0, footY: 0, heightPx: 0 },
 
     // ---------- Derived data (computed by recompute) ----------

@@ -12,6 +12,7 @@
     <div class="header-text">
       <h1 data-i18n="appTitle">📷 相机拍摄计算器</h1>
       <p class="subtitle" data-i18n="subtitle">拍摄距离 · 成像大小 · 景深 · 焦外光斑直径</p>
+      <p class="author">author by AiEnEn</p>
     </div>
     <div class="lang-switch">
       <span class="lang-label" data-i18n="langLabel">语言</span>
@@ -205,12 +206,13 @@
         <div class="visual-wrap" id="personSceneWrap">
           <h3 class="section-title" data-i18n="scenePersonVisual">人像构图视图</h3>
           <canvas id="personCanvas" width="420" height="560"></canvas>
-          <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
           <div class="person-toolbar">
+            <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
             <button class="person-mode-btn active" type="button" data-mode="pose" data-i18n="editPose">调整姿势</button>
             <button class="person-mode-btn" type="button" data-mode="pan" data-i18n="panImage">调整图片</button>
             <button class="person-mode-btn" type="button" id="personImageUploadBtn" data-i18n="uploadImage">上传图片</button>
             <button class="person-mode-btn danger" type="button" id="removePersonImageBtn" data-i18n="removeImage" hidden>移除图片</button>
+            <button class="person-mode-btn" type="button" id="randomPoseBtn" title="随机姿势">🎲</button>
             <input type="file" id="personImageInput" accept="image/*" hidden>
           </div>
         </div>
@@ -324,6 +326,7 @@
 <script src="js/FieldVisualizationView.js"></script>
 <script src="js/BokehPreview.js"></script>
 <script src="js/CameraDistanceView.js"></script>
+<script src="js/stickMan.js"></script>
 <script src="js/PortraitView.js"></script>
 <script src="js/app.js"></script>
 </body>
