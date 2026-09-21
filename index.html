@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>相机拍摄计算器 | Camera Calculator</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/common.css">
+<link rel="stylesheet" href="css/web.css">
+<link rel="stylesheet" href="css/mobile.css">
 </head>
-<body>
+<body data-result-tab="basic" data-mode="person" data-mobile-panel="result" data-fov-lock="false">
 <header class="app-header">
   <div class="header-inner">
     <div class="header-text">
@@ -23,37 +25,39 @@
 </header>
 
 <div class="mobile-nav">
-  <button class="mobile-nav-btn active" id="toggleInputBtn" data-i18n="inputTitle">参数输入</button>
-  <button class="mobile-nav-btn active" id="toggleResultBtn" data-i18n="resultTitle">计算结果</button>
+  <button class="mobile-nav-btn" id="toggleInputBtn" data-i18n="inputTitle">参数输入</button>
+  <button class="mobile-nav-btn" id="toggleResultBtn" data-i18n="resultTitle">计算结果</button>
 </div>
 
 <main class="app-main">
+  <div class="app-main-calc">
 
   <!-- ============ Input panel ============ -->
   <section class="panel panel-input" id="panelInput">
     <h2 data-i18n="inputTitle">参数输入</h2>
 
-    <div class="field-group">
+    <!-- Basic parameters: always visible -->
+    <div class="field-group" data-group="common">
       <label for="sensor" data-i18n="sensor">画幅 / 传感器</label>
       <select id="sensor"></select>
       <div class="hint" id="sensorInfo"></div>
     </div>
 
-    <div class="field-group">
+    <div class="field-group" data-group="common">
       <label for="focal" data-i18n="focal">焦距 (mm)</label>
       <input type="number" id="focal" value="50" min="1" max="2000" step="0.1">
       <input type="range" id="focalRange" min="0" max="1000" step="1" value="500" class="slider">
       <div class="tick-bar" id="focalTickBar"></div>
     </div>
 
-    <div class="field-group">
+    <div class="field-group" data-group="common">
       <label for="aperture" data-i18n="aperture">光圈 f 值</label>
       <input type="number" id="aperture" value="4" min="0.7" max="64" step="0.1">
       <input type="range" id="apertureRange" min="0" max="1000" step="1" value="500" class="slider">
       <div class="tick-bar" id="apertureTickBar"></div>
     </div>
 
-    <div class="field-group">
+    <div class="field-group" data-group="common">
       <label for="distance" data-i18n="distance">对焦距离 (m)</label>
       <div class="distance-input-row">
         <input type="number" id="distance" value="3" min="0.01" max="10000" step="0.01">
@@ -65,88 +69,99 @@
       <input type="range" id="distanceRange" min="0" max="1000" step="1" value="500" class="slider">
     </div>
 
-    <div class="mobile-subtabs" id="mobileSubtabs">
-      <button class="mobile-subtab-btn active" type="button" data-mobile-group="basic" data-i18n="tabBasic">基本</button>
-      <button class="mobile-subtab-btn" type="button" data-mobile-group="dof" data-i18n="tabDof">景深</button>
-      <button class="mobile-subtab-btn" type="button" data-mobile-group="bokeh" data-i18n="tabBokeh">焦外</button>
+    <!-- Person: collapsible section -->
+    <div class="collapsible input-group" data-group="person">
+      <input type="checkbox" id="acc-person" class="collapsible-toggle">
+      <label for="acc-person" class="collapsible-header"><span data-i18n="personTab">人物</span></label>
+      <div class="collapsible-body">
+        <div class="field-group" data-group="person">
+          <div class="row-2">
+            <div class="subj-col">
+              <label for="subjectType" data-i18n="subjectType">被摄物类型</label>
+              <select id="subjectType">
+                <option value="person" selected data-i18n="subjectTypePerson">人</option>
+                <option value="object" data-i18n="subjectTypeObject">物体</option>
+              </select>
+            </div>
+            <div class="subj-col" id="orientationWrap">
+              <label for="orientation" data-i18n="orientation">画面方向</label>
+              <select id="orientation">
+                <option value="landscape" selected data-i18n="orientationLandscape">横屏</option>
+                <option value="portrait" data-i18n="orientationPortrait">竖屏</option>
+              </select>
+            </div>
+          </div>
+          <div class="hint" id="personHint" data-i18n="personHeightHint">按平均身高 1.7m 计算，已预留头部空间</div>
+          <div class="row-2" id="eyeHeightRow">
+            <div class="subj-col">
+              <label for="eyeHeight" data-i18n="eyeHeight">相机相对人眼高度 (m)</label>
+              <input type="number" id="eyeHeight" value="1.6" min="0" max="3" step="0.01">
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group" data-group="person" id="subjectSizeGroup">
+          <label data-i18n="subjectSizeGroup">被摄物尺寸 (m)</label>
+          <div class="row-2">
+            <div class="subj-col">
+              <label for="subjectWidth" class="sub-label" data-i18n="subjectWidth">水平宽度</label>
+              <input type="number" id="subjectWidth" value="0.6" min="0.001" max="1000" step="0.01">
+            </div>
+            <div class="subj-col">
+              <label for="subjectHeight" class="sub-label" data-i18n="subjectHeight">垂直高度</label>
+              <input type="number" id="subjectHeight" value="1.7" min="0.001" max="1000" step="0.01">
+            </div>
+          </div>
+          <div class="hint" data-i18n="subjectSizeHint">用于计算成像大小及构图（如人物宽 0.6m、高 1.7m）</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Basic: subject type and orientation -->
-    <div class="field-group" data-group="basic">
-      <div class="row-2">
-        <div class="subj-col">
-          <label for="subjectType" data-i18n="subjectType">被摄物类型</label>
-          <select id="subjectType">
-            <option value="person" selected data-i18n="subjectTypePerson">人</option>
-            <option value="object" data-i18n="subjectTypeObject">物体</option>
-          </select>
-        </div>
-        <div class="subj-col" id="orientationWrap">
-          <label for="orientation" data-i18n="orientation">画面方向</label>
-          <select id="orientation">
-            <option value="landscape" selected data-i18n="orientationLandscape">横屏</option>
-            <option value="portrait" data-i18n="orientationPortrait">竖屏</option>
-          </select>
-        </div>
-      </div>
-      <div class="hint" id="personHint" data-i18n="personHeightHint">按平均身高 1.7m 计算，已预留头部空间</div>
-      <div class="row-2" id="eyeHeightRow">
-        <div class="subj-col">
-          <label for="eyeHeight" data-i18n="eyeHeight">相机相对人眼高度 (m)</label>
-          <input type="number" id="eyeHeight" value="1.6" min="0" max="3" step="0.01">
+    <!-- Depth of field: collapsible section -->
+    <div class="collapsible input-group" data-group="dof">
+      <input type="checkbox" id="acc-dof" class="collapsible-toggle">
+      <label for="acc-dof" class="collapsible-header"><span data-i18n="tabDof">景深</span></label>
+      <div class="collapsible-body">
+        <div class="field-group" data-group="dof">
+          <div class="row-2">
+            <div class="subj-col">
+              <label for="cocPreset" data-i18n="cocPreset">景深清晰度标准</label>
+              <select id="cocPreset">
+                <option value=""></option>
+                <option value="normal" selected data-i18n="cocNormal">一般（标准）</option>
+                <option value="loose" data-i18n="cocLoose">宽松（景深更深）</option>
+                <option value="strict" data-i18n="cocStrict">严格（景深更浅）</option>
+              </select>
+            </div>
+            <div class="subj-col">
+              <label for="cocValue" data-i18n="cocValueLabel">CoC 直径 (mm)</label>
+              <input type="number" id="cocValue" value="0.030" min="0.001" max="0.2" step="0.001">
+            </div>
+          </div>
+          <div class="hint" data-i18n="cocHint">CoC 越小 = 对清晰度要求越严格，计算的景深越浅</div>
         </div>
       </div>
     </div>
 
-    <!-- Basic: object size -->
-    <div class="field-group" data-group="basic" id="subjectSizeGroup">
-      <label data-i18n="subjectSizeGroup">被摄物尺寸 (m)</label>
-      <div class="row-2">
-        <div class="subj-col">
-          <label for="subjectWidth" class="sub-label" data-i18n="subjectWidth">水平宽度</label>
-          <input type="number" id="subjectWidth" value="0.6" min="0.001" max="1000" step="0.01">
-        </div>
-        <div class="subj-col">
-          <label for="subjectHeight" class="sub-label" data-i18n="subjectHeight">垂直高度</label>
-          <input type="number" id="subjectHeight" value="1.7" min="0.001" max="1000" step="0.01">
-        </div>
-      </div>
-      <div class="hint" data-i18n="subjectSizeHint">用于计算成像大小及构图（如人物宽 0.6m、高 1.7m）</div>
-    </div>
-
-    <!-- Depth of field: CoC -->
-    <div class="field-group" data-group="dof" hidden>
-      <div class="row-2">
-        <div class="subj-col">
-          <label for="cocPreset" data-i18n="cocPreset">景深清晰度标准</label>
-          <select id="cocPreset">
-            <option value=""></option>
-            <option value="normal" selected data-i18n="cocNormal">一般（标准）</option>
-            <option value="loose" data-i18n="cocLoose">宽松（景深更深）</option>
-            <option value="strict" data-i18n="cocStrict">严格（景深更浅）</option>
-          </select>
-        </div>
-        <div class="subj-col">
-          <label for="cocValue" data-i18n="cocValueLabel">CoC 直径 (mm)</label>
-          <input type="number" id="cocValue" value="0.030" min="0.001" max="0.2" step="0.001">
+    <!-- Bokeh: collapsible section -->
+    <div class="collapsible input-group" data-group="bokeh">
+      <input type="checkbox" id="acc-bokeh" class="collapsible-toggle">
+      <label for="acc-bokeh" class="collapsible-header"><span data-i18n="tabBokeh">焦外</span></label>
+      <div class="collapsible-body">
+        <div class="field-group" data-group="bokeh">
+          <div class="row-2">
+            <div class="subj-col">
+              <label for="bgOffset"><span data-i18n="bgDistance">焦外到对焦点距离 (m)</span> <span class="opt" data-i18n="optional">可选</span></label>
+              <input type="number" id="bgOffset" value="7" min="-99999" max="100000" step="0.1">
+            </div>
+            <div class="subj-col">
+              <label for="bgLightSize"><span data-i18n="bgLightSize">焦外光源实际直径 (m)</span> <span class="opt" data-i18n="optional">可选</span></label>
+              <input type="number" id="bgLightSize" value="0" min="0" max="100" step="0.01">
+            </div>
+          </div>
+          <div class="hint" data-i18n="bgDistanceHint">负值为对焦点前方（前景），正值为对焦点后方（后景）</div>
         </div>
       </div>
-      <div class="hint" data-i18n="cocHint">CoC 越小 = 对清晰度要求越严格，计算的景深越浅</div>
-    </div>
-
-    <!-- Bokeh -->
-    <div class="field-group" data-group="bokeh" hidden>
-      <div class="row-2">
-        <div class="subj-col">
-          <label for="bgDistance"><span data-i18n="bgDistance">背景/焦外点距离 (m)</span> <span class="opt" data-i18n="optional">可选</span></label>
-          <input type="number" id="bgDistance" value="10" min="0.01" max="100000" step="0.1">
-        </div>
-        <div class="subj-col">
-          <label for="bgLightSize"><span data-i18n="bgLightSize">焦外光源实际直径 (m)</span> <span class="opt" data-i18n="optional">可选</span></label>
-          <input type="number" id="bgLightSize" value="0" min="0" max="100" step="0.01">
-        </div>
-      </div>
-      <div class="hint" data-i18n="bgDistanceHint">背景距离与光源尺寸用于计算焦外光斑直径</div>
     </div>
 
     <button id="resetBtn" class="btn-secondary" data-i18n="reset">重置默认值</button>
@@ -200,7 +215,7 @@
           <div class="card-value" id="rImageHeight">—</div>
           <div class="card-unit" data-i18n="unitMmRatio">mm / 占画幅</div>
         </div>
-        <div class="card" id="personImagingCard" hidden>
+        <div class="card" id="personImagingCard">
           <div class="card-title" data-i18n="personImagingLength">人成像长度</div>
           <div class="card-value" id="rPersonImaging">—</div>
           <div class="card-unit" data-i18n="unitMmRatio">mm / 占画幅</div>
@@ -209,32 +224,47 @@
 
       <div class="scene-row">
         <!-- Portrait framing view (person mode only) -->
-        <div class="visual-wrap" id="personSceneWrap">
-          <h3 class="section-title" data-i18n="scenePersonVisual">人像构图视图</h3>
-          <canvas id="personCanvas" width="420" height="560"></canvas>
-          <div class="person-toolbar">
-            <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
-            <button class="person-mode-btn active" type="button" data-mode="pose" data-i18n="editPose">调整姿势</button>
-            <button class="person-mode-btn" type="button" data-mode="pan" data-i18n="panImage">调整图片</button>
-            <button class="person-mode-btn" type="button" id="personImageUploadBtn" data-i18n="uploadImage">上传图片</button>
-            <button class="person-mode-btn danger" type="button" id="removePersonImageBtn" data-i18n="removeImage" hidden>移除图片</button>
-            <button class="person-mode-btn" type="button" id="randomPoseBtn" title="随机姿势">🎲</button>
-            <input type="file" id="personImageInput" accept="image/*" hidden>
+        <div class="collapsible view-details" id="personSceneWrap">
+          <input type="checkbox" id="acc-person-view" class="collapsible-toggle">
+          <label for="acc-person-view" class="collapsible-header"><span data-i18n="scenePersonVisual">人像构图视图</span></label>
+          <div class="collapsible-body">
+            <div class="visual-wrap">
+              <canvas id="personCanvas" width="420" height="560"></canvas>
+              <div class="person-toolbar">
+                <button class="view-reset-btn" id="resetPortraitBtn" type="button" data-i18n="viewReset">重置</button>
+                <button class="person-mode-btn active" type="button" data-mode="pose" data-i18n="editPose">调整姿势</button>
+                <button class="person-mode-btn" type="button" data-mode="pan" data-i18n="panImage">调整图片</button>
+                <button class="person-mode-btn" type="button" id="personImageUploadBtn" data-i18n="uploadImage">上传图片</button>
+                <button class="person-mode-btn danger" type="button" id="removePersonImageBtn" data-i18n="removeImage" hidden>移除图片</button>
+                <button class="person-mode-btn" type="button" id="randomPoseBtn" title="随机姿势">🎲</button>
+                <input type="file" id="personImageInput" accept="image/*" hidden>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Top view horizontal reference (object mode only) -->
-        <div class="visual-wrap" id="topViewWrap" hidden>
-          <h3 class="section-title" data-i18n="sceneTopVisual">俯视图：相机与被摄物距离</h3>
-          <canvas id="sceneTopCanvas" width="640" height="853"></canvas>
-          <button class="view-reset-btn" id="resetTopBtn" type="button" data-i18n="viewReset">重置</button>
+        <div class="collapsible view-details" id="topViewWrap">
+          <input type="checkbox" id="acc-top-view" class="collapsible-toggle">
+          <label for="acc-top-view" class="collapsible-header"><span data-i18n="sceneTopVisual">俯视图：相机与被摄物距离</span></label>
+          <div class="collapsible-body">
+            <div class="visual-wrap">
+              <canvas id="sceneTopCanvas" width="640" height="853"></canvas>
+              <button class="view-reset-btn" id="resetTopBtn" type="button" data-i18n="viewReset">重置</button>
+            </div>
+          </div>
         </div>
 
         <!-- Side view vertical reference (shared by person and object modes) -->
-        <div class="visual-wrap" id="sideViewWrap">
-          <h3 class="section-title" data-i18n="sceneSideVisual">侧视图：被摄物高度 · 垂直视角</h3>
-          <canvas id="sceneSideCanvas" width="640" height="853"></canvas>
-          <button class="view-reset-btn" id="resetSideBtn" type="button" data-i18n="viewReset">重置</button>
+        <div class="collapsible view-details" id="sideViewWrap">
+          <input type="checkbox" id="acc-side-view" class="collapsible-toggle">
+          <label for="acc-side-view" class="collapsible-header"><span data-i18n="sceneSideVisual">侧视图：被摄物高度 · 垂直视角</span></label>
+          <div class="collapsible-body">
+            <div class="visual-wrap">
+              <canvas id="sceneSideCanvas" width="640" height="853"></canvas>
+              <button class="view-reset-btn" id="resetSideBtn" type="button" data-i18n="viewReset">重置</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -274,10 +304,15 @@
         </div>
       </div>
 
-      <div class="visual-wrap">
-        <h3 class="section-title" data-i18n="dofVisual">景深可视化</h3>
-        <canvas id="dofCanvas" width="900" height="240"></canvas>
-        <button class="view-reset-btn" id="resetDofBtn" type="button" data-i18n="viewReset">重置</button>
+      <div class="collapsible view-details">
+        <input type="checkbox" id="acc-dof-view" class="collapsible-toggle">
+        <label for="acc-dof-view" class="collapsible-header"><span data-i18n="dofVisual">景深可视化</span></label>
+        <div class="collapsible-body">
+          <div class="visual-wrap">
+            <canvas id="dofCanvas" width="900" height="240"></canvas>
+            <button class="view-reset-btn" id="resetDofBtn" type="button" data-i18n="viewReset">重置</button>
+          </div>
+        </div>
       </div>
 
       <div class="conclusion-box">
@@ -311,13 +346,19 @@
         </div>
       </div>
 
-      <div class="visual-wrap">
-        <h3 class="section-title" data-i18n="bokehVisual">焦外光斑预览 (3:2)</h3>
-        <canvas id="bokehCanvas" width="900" height="560"></canvas>
+      <div class="collapsible view-details">
+        <input type="checkbox" id="acc-bokeh-view" class="collapsible-toggle">
+        <label for="acc-bokeh-view" class="collapsible-header"><span data-i18n="bokehVisual">焦外光斑预览 (3:2)</span></label>
+        <div class="collapsible-body">
+          <div class="visual-wrap">
+            <canvas id="bokehCanvas" width="900" height="560"></canvas>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
+  </div>
 </main>
 
 <footer class="app-footer">

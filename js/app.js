@@ -5,10 +5,14 @@
  * Responsibilities:
  *  - Read input controls -> Store.update() writes into the data model
  *  - Listen to Store changes -> render result cards and each view
- *  - Mobile collapsing, tick marks, language switching, view reset
+ *  - Write UI *state* to <body data-*=""> attributes; CSS (common/web/mobile)
+ *    is solely responsible for layout and show/hide.
  *
- * Principle: all data (raw inputs + derived values) is managed by data.js.
- * Components only render and never compute or hold their own data copies.
+ * Principle:
+ *  - All data (raw inputs + derived values) is managed by data.js.
+ *  - Components only render and never compute or hold their own data copies.
+ *  - This file never toggles inline `style` / `hidden` / class display; it only
+ *    records intent via data attributes and lets stylesheets react.
  */
 
 (function () {
@@ -22,19 +26,16 @@
     aperture: $('aperture'), apertureRange: $('apertureRange'),
     distance: $('distance'), distanceRange: $('distanceRange'),
     subjectType: $('subjectType'), orientation: $('orientation'),
-    orientationWrap: $('orientationWrap'), subjectSizeGroup: $('subjectSizeGroup'),
-    personHint: $('personHint'),
     subjectWidth: $('subjectWidth'), subjectHeight: $('subjectHeight'),
     eyeHeight: $('eyeHeight'),
     cocPreset: $('cocPreset'), cocValue: $('cocValue'),
-    bgDistance: $('bgDistance'), bgLightSize: $('bgLightSize'),
+    bgOffset: $('bgOffset'), bgLightSize: $('bgLightSize'),
     resetBtn: $('resetBtn'),
 
     rEquivFocal: $('rEquivFocal'), rFov: $('rFov'),
     rMagnification: $('rMagnification'), rFovWidth: $('rFovWidth'), rFovHeight: $('rFovHeight'),
     rImageWidth: $('rImageWidth'), rImageHeight: $('rImageHeight'),
-    imageWidthCard: $('imageWidthCard'), imageHeightCard: $('imageHeightCard'),
-    personImagingCard: $('personImagingCard'), rPersonImaging: $('rPersonImaging'),
+    rPersonImaging: $('rPersonImaging'),
 
     rDofTotal: $('rDofTotal'), rDofNear: $('rDofNear'), rDofFar: $('rDofFar'),
     rDofRange: $('rDofRange'), rHyperfocal: $('rHyperfocal'), rEntrancePupil: $('rEntrancePupil'),
@@ -43,7 +44,6 @@
     rBokehSensor: $('rBokehSensor'), rBokehRatio: $('rBokehRatio'),
     rBokehPixels: $('rBokehPixels'), rBokehBlur: $('rBokehBlur'),
 
-    personSceneWrap: $('personSceneWrap'), topViewWrap: $('topViewWrap'), sideViewWrap: $('sideViewWrap'),
     personCanvas: $('personCanvas'), sceneTopCanvas: $('sceneTopCanvas'), sceneSideCanvas: $('sceneSideCanvas'),
     dofCanvas: $('dofCanvas'), bokehCanvas: $('bokehCanvas'),
 
@@ -57,7 +57,7 @@
     subjectType: 'person', orientation: 'landscape',
     subjectWidth: 0.6, subjectHeight: 1.7,
     cocPreset: 'normal', cocValue: 0.030,
-    bgDistance: 10, bgLightSize: 0,
+    bgOffset: 7, bgLightSize: 0,
     eyeHeight: 1.6
   };
 
@@ -70,10 +70,10 @@
   const store = Store;
   const state = Store.state;
 
+  // UI intent state (mirrored to <body data-*="">; CSS reacts to it).
   let syncingCoC = false;
-  let lastDistanceM = DEFAULTS.distance;
   let activeResultTab = 'basic';
-  let activeInputGroup = 'basic';
+  let activeMobilePanel = 'result';
 
   // ---------- View instances ----------
   const portraitView = new PortraitView(el.personCanvas);
@@ -111,6 +111,15 @@
     }
   }
 
+  // ---------- Write UI intent to <body data-*="">; CSS drives the visuals ----------
+  function writeBodyState() {
+    const b = document.body;
+    b.dataset.resultTab = activeResultTab;
+    b.dataset.mobilePanel = activeMobilePanel;
+    b.dataset.mode = el.subjectType.value;
+    b.dataset.fovLock = state.fovLock ? 'true' : 'false';
+  }
+
   // ---------- Read input controls -> data model ----------
   function applyRawInputs() {
     const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
@@ -121,7 +130,7 @@
     const distanceM = parseFloat(el.distance.value);
     const subjectWidthRaw = parseFloat(el.subjectWidth.value);
     const subjectHeightRaw = parseFloat(el.subjectHeight.value);
-    const bgDistanceM = parseFloat(el.bgDistance.value);
+    const bgOffsetM = parseFloat(el.bgOffset.value);
     const bgLightSizeM = parseFloat(el.bgLightSize.value);
     const cocValue = parseFloat(el.cocValue.value);
     const eyeHeightM = parseFloat(el.eyeHeight.value);
@@ -135,7 +144,7 @@
       mode: el.subjectType.value,
       subjectWidthRaw: isFinite(subjectWidthRaw) ? subjectWidthRaw : 0,
       subjectHeightRaw: isFinite(subjectHeightRaw) ? subjectHeightRaw : 0,
-      bgDistanceM: isFinite(bgDistanceM) ? bgDistanceM : 0,
+      bgOffsetM: isFinite(bgOffsetM) ? bgOffsetM : 0,
       bgLightSizeM: isFinite(bgLightSizeM) ? bgLightSizeM : 0,
       cocPreset: el.cocPreset.value,
       cocValue: isFinite(cocValue) ? cocValue : 0.030,
@@ -144,19 +153,9 @@
     });
   }
 
-  // ---------- Sync background distance (follow focus distance changes) ----------
-  function syncBgDistance() {
-    const nd = parseFloat(el.distance.value);
-    if (!isFinite(nd)) return;
-    const delta = nd - lastDistanceM;
-    if (delta !== 0) {
-      el.bgDistance.value = Math.max(0.01, (parseFloat(el.bgDistance.value) || 0) + delta).toFixed(2);
-    }
-    lastDistanceM = nd;
-  }
-
+  // The bokeh offset is relative to the focus plane, so it stays constant when
+  // the focus distance changes; no syncing is needed.
   function onDistanceChange() {
-    syncBgDistance();
     applyRawInputs();
   }
 
@@ -174,15 +173,15 @@
 
   // ---------- Render: result cards (all read from state) ----------
   function renderResultCards() {
+    writeBodyState();
+
     const s = state;
     if (!s.sensor || !s.dof) return;
 
-    if (s.sensor) {
-      const diag = sensorDiagonal(s.sensor);
-      el.sensorInfo.textContent = i18n.sensorInfo(
-        s.sensor.w, s.sensor.h, diag.toFixed(2), s.crop.toFixed(2), s.coc.toFixed(3)
-      );
-    }
+    const diag = sensorDiagonal(s.sensor);
+    el.sensorInfo.textContent = i18n.sensorInfo(
+      s.sensor.w, s.sensor.h, diag.toFixed(2), s.crop.toFixed(2), s.coc.toFixed(3)
+    );
 
     el.rEquivFocal.textContent = fmt(s.equivFocal, 1);
     el.rFov.textContent = `${s.fovHdeg.toFixed(1)}° × ${s.fovVdeg.toFixed(1)}°`;
@@ -212,8 +211,10 @@
 
     // Write back to input controls (data model -> inputs).
     // Skip the numeric inputs that the user is actively editing, otherwise the
-    // store roundtrip would clobber their typing (notably the aperture field).
-    el.distance.value = s.distanceM.toFixed(2);
+    // store roundtrip would clobber their typing.
+    if (document.activeElement !== el.distance) {
+      el.distance.value = s.distanceM.toFixed(2);
+    }
     el.distanceRange.value = Math.round(Calc.sliderFromLog(s.distanceM, LOG.distance) * 1000);
     if (document.activeElement !== el.eyeHeight) {
       el.eyeHeight.value = s.eyeHeightM.toFixed(2);
@@ -223,8 +224,7 @@
     }
     el.apertureRange.value = Math.round(Calc.sliderFromLog(s.aperture, LOG.aperture) * 1000);
 
-    // Framing lock UI state
-    el.compLockBtn.classList.toggle('active', s.fovLock);
+    // Framing lock control affordance (visual state is driven by data-fov-lock).
     el.compLockBtn.setAttribute('aria-pressed', s.fovLock ? 'true' : 'false');
     if (el.compLockIcon) el.compLockIcon.textContent = s.fovLock ? '🔒' : '🔓';
     el.distance.disabled = s.fovLock;
@@ -236,57 +236,28 @@
 
   function renderViews() {
     portraitView.render();
-    if (state.mode === 'person') {
-      sideView.render();
-    } else {
-      topView.render();
-      sideView.render();
-    }
+    topView.render();
+    sideView.render();
     fieldView.render();
     bokehView.render();
   }
 
-  // ---------- Display mode ----------
-  function updateModeVisibility() {
-    const isPerson = el.subjectType.value === 'person';
-    el.orientationWrap.hidden = !isPerson;
-    el.subjectSizeGroup.hidden = isPerson;
-    el.personHint.hidden = !isPerson;
-    el.personSceneWrap.hidden = !isPerson;
-    el.topViewWrap.hidden = isPerson;
-    el.sideViewWrap.hidden = false;
-    if (el.imageWidthCard) el.imageWidthCard.hidden = isPerson;
-    if (el.imageHeightCard) el.imageHeightCard.hidden = isPerson;
-    if (el.personImagingCard) el.personImagingCard.hidden = !isPerson;
-  }
-
-  function updateInputGroups() {
-    const isMobile = window.matchMedia('(max-width: 600px)').matches;
-    const target = isMobile ? activeInputGroup : activeResultTab;
-    document.querySelectorAll('.panel-input [data-group]').forEach((g) => {
-      g.hidden = g.getAttribute('data-group') !== target;
-    });
-  }
-
+  // ---------- Tab / group / panel switching: set intent, CSS reacts ----------
   function switchTab(tab) {
     activeResultTab = tab;
-    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-tab') === tab));
-    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + tab));
-    updateInputGroups();
-    updateModeVisibility();
+    writeBodyState();
   }
 
-  function setupMobileSubtabs() {
-    document.querySelectorAll('.mobile-subtab-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        activeInputGroup = btn.getAttribute('data-mobile-group');
-        document.querySelectorAll('.mobile-subtab-btn').forEach((b) =>
-          b.classList.toggle('active', b.getAttribute('data-mobile-group') === activeInputGroup)
-        );
-        updateInputGroups();
-      });
+  function setupMobileToggle() {
+    const inputBtn = $('toggleInputBtn'), resultBtn = $('toggleResultBtn');
+    inputBtn.addEventListener('click', () => {
+      activeMobilePanel = 'input';
+      writeBodyState();
     });
-    window.addEventListener('resize', updateInputGroups);
+    resultBtn.addEventListener('click', () => {
+      activeMobilePanel = 'result';
+      writeBodyState();
+    });
   }
 
   // ---------- Translation ----------
@@ -342,28 +313,6 @@
     renderTickBar($('apertureTickBar'), [1.2, 1.4,1.8, 2.8, 4.0, 5.6, 8, 12, 22], LOG.aperture, (v) => 'f/' + v);
   }
 
-  // ---------- Mobile collapsing ----------
-  function setupMobileToggle() {
-    const inputBtn = $('toggleInputBtn'), resultBtn = $('toggleResultBtn');
-    const inputPanel = $('panelInput'), resultPanel = $('panelResult');
-    const mq = window.matchMedia('(max-width: 600px)');
-    function update() {
-      if (!mq.matches) {
-        inputPanel.hidden = false; resultPanel.hidden = false;
-        inputBtn.style.display = 'none'; resultBtn.style.display = 'none';
-        return;
-      }
-      inputBtn.style.display = ''; resultBtn.style.display = '';
-      inputPanel.hidden = !inputBtn.classList.contains('active');
-      resultPanel.hidden = !resultBtn.classList.contains('active');
-    }
-    inputBtn.addEventListener('click', () => { inputBtn.classList.add('active'); resultBtn.classList.remove('active'); update(); });
-    resultBtn.addEventListener('click', () => { resultBtn.classList.add('active'); inputBtn.classList.remove('active'); update(); });
-    window.addEventListener('resize', update);
-    inputBtn.classList.remove('active'); resultBtn.classList.add('active');
-    update();
-  }
-
   // ---------- Input binding ----------
   function bindLogSync(numEl, rangeEl, cfg, onChange) {
     numEl.addEventListener('input', () => {
@@ -388,7 +337,7 @@
       applyRawInputs();
     });
 
-    [el.subjectWidth, el.subjectHeight, el.bgDistance, el.bgLightSize].forEach((n) => {
+    [el.subjectWidth, el.subjectHeight, el.bgOffset, el.bgLightSize].forEach((n) => {
       n.addEventListener('input', applyRawInputs);
       n.addEventListener('change', applyRawInputs);
     });
@@ -404,7 +353,7 @@
       applyRawInputs();
     });
 
-    el.subjectType.addEventListener('change', () => { updateModeVisibility(); applyRawInputs(); });
+    el.subjectType.addEventListener('change', () => { writeBodyState(); applyRawInputs(); });
     el.orientation.addEventListener('change', applyRawInputs);
     el.eyeHeight.addEventListener('input', applyRawInputs);
 
@@ -458,13 +407,12 @@
       el.subjectHeight.value = DEFAULTS.subjectHeight;
       el.cocPreset.value = DEFAULTS.cocPreset;
       el.cocValue.value = DEFAULTS.cocValue;
-      el.bgDistance.value = DEFAULTS.bgDistance;
+      el.bgOffset.value = DEFAULTS.bgOffset;
       el.bgLightSize.value = DEFAULTS.bgLightSize;
       el.eyeHeight.value = DEFAULTS.eyeHeight;
-      lastDistanceM = DEFAULTS.distance;
       state.fovLock = false;
       state.lockFrameM = null;
-      updateModeVisibility();
+      writeBodyState();
       applyRawInputs();
     });
   }
@@ -473,7 +421,6 @@
     setLang(lang);
     applyTranslations();
     rebuildSensorSelect();
-    document.querySelectorAll('.lang-btn').forEach((b) => b.classList.toggle('active', b.getAttribute('data-lang') === lang));
     applyRawInputs();
   }
 
@@ -507,16 +454,14 @@
     store.update({ subjectX: c.width * 0.78, subjectY: c.height * 0.8 });
 
     syncSliderPositions();
-    updateModeVisibility();
     state.autoOrient = true;
     state.dragging = false;
-    switchTab('basic');
+    writeBodyState();
 
     if (sensor) applyPresetToCoC(sensor);
     applyRawInputs();
     populateTicks();
     setupMobileToggle();
-    setupMobileSubtabs();
   }
 
   if (document.readyState === 'loading') {

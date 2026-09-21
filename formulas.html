@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>公式说明 | Camera Calculator</title>
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/common.css">
 <style>
   .back-link { display:inline-block; margin-bottom:18px; color:var(--accent); text-decoration:none; font-weight:600; }
   .back-link:hover { text-decoration:underline; }
@@ -76,10 +76,10 @@
 
     <h2 style="margin-top:28px;">焦外光斑直径（Bokeh）</h2>
     <code>A = f / N</code>
-    <code>B = A × |u_bg − u| / u_bg × (f / (u − f))</code>
+    <code>B = A × |Δ| / (u + Δ) × (f / (u − f))</code>
     <div class="principle">
       <h3>原理</h3>
-      <p>背景上离开对焦平面的点光源，在传感器上不再是点，而是圆形的弥散斑（光斑）。光斑大小与入瞳直径 A、背景距离 u_bg、对焦距离 u 相关。入瞳越大、背景越远、对焦越近，光斑越大，虚化越强。</p>
+      <p>离开对焦平面的点光源，在传感器上不再是点，而是圆形的弥散斑（光斑）。其中 Δ 为焦外点到对焦点的距离：负值表示对焦点前方（前景），正值表示对焦点后方（后景）。光斑大小与入瞳直径 A、偏移量 Δ、对焦距离 u 相关。入瞳越大、偏移越远、对焦越近，光斑越大，虚化越强。</p>
       <p style="margin-top:8px;">远景简化：B ≈ A × f / (u − f)。</p>
     </div>
 

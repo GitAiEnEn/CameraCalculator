@@ -1,0 +1,119 @@
+/* ============================================================
+   web.css
+   Desktop / tablet layout (>= 601px). Restores the original desktop
+   layout (before the mobile redesign):
+     - Person / DoF / Bokeh fields follow the active result tab
+     - Visualization views (portrait / top / side / DoF / bokeh) are
+       always expanded
+   The collapsible (checkbox) behavior applies to mobile only.
+   ============================================================ */
+
+@media (min-width: 601px) {
+  .app-main-calc {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+
+  .mobile-nav {
+    display: none;
+  }
+
+  #panelInput,
+  #panelResult {
+    display: flex;
+  }
+
+  /* ---------- Input panel: restore original "groups follow the
+     active result tab". Basic params (sensor / focal / aperture /
+     focus distance) are shown only on the "Basic" result tab. */
+  .field-group[data-group="common"] {
+    display: block;
+  }
+  body:not([data-result-tab="basic"]) .field-group[data-group="common"] {
+    display: none;
+  }
+
+  .collapsible.input-group {
+    display: none;
+    background: none;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    overflow: visible;
+  }
+  /* On desktop hide the toggle and header, and expand the content */
+  .collapsible.input-group > .collapsible-toggle,
+  .collapsible.input-group > .collapsible-header {
+    display: none;
+  }
+  .collapsible.input-group > .collapsible-body {
+    display: block;
+    padding: 0;
+  }
+
+  body[data-result-tab="basic"] .collapsible.input-group[data-group="person"] {
+    display: block;
+  }
+  body[data-result-tab="dof"] .collapsible.input-group[data-group="dof"] {
+    display: block;
+  }
+  body[data-result-tab="bokeh"] .collapsible.input-group[data-group="bokeh"] {
+    display: block;
+  }
+
+  /* ---------- Visualization views: restore original section-title
+     header + always expanded ---------- */
+  .collapsible.view-details {
+    display: block;
+    background: none;
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    overflow: visible;
+  }
+  .collapsible.view-details > .collapsible-toggle {
+    display: none;
+  }
+  .collapsible.view-details > .collapsible-header {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-2);
+    margin: 22px 0 12px;
+    padding: 0 0 0 10px;
+    border-left: 3px solid var(--accent-2);
+    cursor: default;
+    user-select: text;
+  }
+  .collapsible.view-details > .collapsible-header::after {
+    content: none;
+  }
+  .collapsible.view-details > .collapsible-body {
+    display: block;
+    padding: 0;
+  }
+
+  /* Scene views: two columns on desktop
+     (portrait framing + side view / top view + side view) */
+  .scene-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .scene-row .visual-wrap {
+    margin-top: 0;
+  }
+
+  .visual-wrap {
+    margin-top: 20px;
+  }
+}
+
+/* Tablet (601–980px): switch to a single column */
+@media (min-width: 601px) and (max-width: 980px) {
+  .app-main-calc {
+    grid-template-columns: 1fr;
+  }
+}

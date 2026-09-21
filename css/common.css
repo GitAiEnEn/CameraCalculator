@@ -1,5 +1,9 @@
 /* ============================================================
-   相机拍摄计算器 - 样式表
+   common.css
+   Shared styles: theme variables, base typography and component
+   look-and-feel for all viewports. Layout and panel visibility are
+   handled by web.css / mobile.css; logical state is driven by the
+   <body data-*=""> attributes (JS only writes those attributes).
    ============================================================ */
 
 :root {
@@ -43,7 +47,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---------- 头部 ---------- */
+/* ---------- Header ---------- */
 .app-header {
   padding: 28px 20px 20px;
   border-bottom: 1px solid var(--border);
@@ -83,7 +87,7 @@ body {
   font-style: italic;
 }
 
-/* ---------- 语言切换 ---------- */
+/* ---------- Language switch ---------- */
 .lang-switch {
   display: flex;
   align-items: center;
@@ -114,20 +118,9 @@ body {
   color: var(--accent);
 }
 
-.lang-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0b1220;
-  font-weight: 600;
-}
-
-/* ---------- 移动端折叠导航 ---------- */
+/* ---------- Bottom switch nav (shown on mobile by mobile.css) ---------- */
 .mobile-nav {
   display: none;
-  max-width: 1400px;
-  margin: 12px auto 0;
-  padding: 0 20px;
-  gap: 10px;
 }
 
 .mobile-nav-btn {
@@ -143,13 +136,6 @@ body {
   transition: all 0.15s;
 }
 
-.mobile-nav-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0b1220;
-  font-weight: 600;
-}
-
 .formula-link {
   color: var(--accent);
   text-decoration: none;
@@ -160,9 +146,37 @@ body {
   text-decoration: underline;
 }
 
-/* 滑块刻度 */
+/* ---------- Range slider ---------- */
 .slider {
-  position: relative;
+  width: 100%;
+  margin-top: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  cursor: pointer;
 }
 
 .tick-bar {
@@ -179,15 +193,11 @@ body {
   white-space: nowrap;
 }
 
-/* ---------- 主布局 ---------- */
+/* ---------- Main layout container ---------- */
 .app-main {
   max-width: 1400px;
   margin: 0 auto;
   padding: 24px 20px 60px;
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 24px;
-  align-items: stretch;
 }
 
 .panel {
@@ -213,19 +223,62 @@ body {
   color: var(--accent);
 }
 
-.panel-input {
-  /* 不悬浮，随页面流自然滚动 */
-}
-
 .panel-result {
   min-width: 0;
 }
 
-.panel-formula {
-  grid-column: 1 / -1;
+/* ---------- Collapsible sections (Person / DoF / Bokeh & views) ----------
+   Checkbox hack: collapsed by default (for mobile). On desktop,
+   web.css overrides them to "always expanded + hide the toggle". */
+.collapsible {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
 }
 
-/* ---------- 表单 ---------- */
+.collapsible-toggle {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.collapsible-header::after {
+  content: "▾";
+  color: var(--text-mute);
+  font-size: 12px;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.collapsible-toggle:checked ~ .collapsible-header::after {
+  transform: rotate(180deg);
+}
+
+.collapsible-body {
+  display: none;
+  padding: 0 14px 14px;
+}
+
+.collapsible-toggle:checked ~ .collapsible-body {
+  display: block;
+}
+
+/* ---------- Forms ---------- */
 .field-group {
   margin-bottom: 18px;
 }
@@ -288,38 +341,6 @@ body {
   color: var(--text);
 }
 
-.slider {
-  width: 100%;
-  margin-top: 8px;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--border);
-  cursor: pointer;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--bg);
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
-  cursor: pointer;
-}
-
-.slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--bg);
-  cursor: pointer;
-}
-
 .hint {
   font-size: 11.5px;
   color: var(--text-mute);
@@ -327,39 +348,6 @@ body {
   line-height: 1.5;
 }
 
-/* 移动端参数分组子标签（基本 / 景深 / 焦外） */
-.mobile-subtabs {
-  display: none;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.mobile-subtab-btn {
-  flex: 1;
-  padding: 8px 0;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text-dim);
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.mobile-subtab-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.mobile-subtab-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0b1220;
-  font-weight: 600;
-}
-
-/* 双列输入 */
 .row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -415,7 +403,7 @@ body {
   background: rgba(56, 189, 248, 0.06);
 }
 
-/* ---------- 选项卡 ---------- */
+/* ---------- Result tabs ---------- */
 .tab-bar {
   display: flex;
   gap: 8px;
@@ -441,22 +429,18 @@ body {
   color: var(--accent);
 }
 
-.tab-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0b1220;
-  font-weight: 600;
-}
-
 .tab-panel {
   display: none;
+  min-height: 520px;
 }
 
-.tab-panel.active {
+body[data-result-tab="basic"] #tab-basic,
+body[data-result-tab="dof"] #tab-dof,
+body[data-result-tab="bokeh"] #tab-bokeh {
   display: block;
 }
 
-/* ---------- 结果卡片 ---------- */
+/* ---------- Result cards ---------- */
 .result-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -516,196 +500,140 @@ body {
   border-left: 3px solid var(--accent-2);
 }
 
-/* ---------- 可视化 ---------- */
+/* ---------- Visualization ---------- */
 .scene-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
   margin-top: 20px;
-}
-
-.scene-row .visual-wrap {
-  margin-top: 0;
 }
 
 .visual-wrap {
   margin-top: 20px;
 }
 
-  .visual-wrap canvas {
-    width: 100%;
-    height: auto;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    display: block;
-  }
-
-  /* 火柴人交互画布：阻止触摸手势触发页面滚动 */
-  #personCanvas {
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-  }
-
-  .person-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
-  .person-toolbar .view-reset-btn {
-    margin-top: 0;
-  }
-
-  .person-mode-btn {
-    padding: 6px 12px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-dim);
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .person-mode-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .person-mode-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #0b1220;
-    font-weight: 600;
-  }
-
-  .person-mode-btn.danger:hover {
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-
-  .view-reset-btn {
-    margin-top: 10px;
-    padding: 7px 16px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-dim);
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .view-reset-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(56, 189, 248, 0.06);
-  }
-
-  .view-reset-btn:disabled,
-  .lock-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .distance-input-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .distance-input-row input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  input:disabled,
-  .slider:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .lock-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    height: 40px;
-    padding: 0 12px;
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-dim);
-    font-size: 12px;
-    font-family: inherit;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .lock-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .lock-btn.active {
-    background: rgba(245, 158, 11, 0.15);
-    border-color: var(--accent-warm);
-    color: var(--accent-warm);
-    font-weight: 600;
-  }
-
-  .lock-icon {
-    font-size: 14px;
-  }
-
-/* ---------- 公式说明 ---------- */
-.formula-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.formula-item {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+.visual-wrap canvas {
+  width: 100%;
+  height: auto;
   border-radius: 10px;
-  padding: 16px;
+  border: 1px solid var(--border);
+  display: block;
 }
 
-.formula-item h4 {
-  font-size: 13px;
-  color: var(--accent);
+#personCanvas {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.person-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.formula-item code {
-  display: block;
+.person-toolbar .view-reset-btn {
+  margin-top: 0;
+}
+
+.person-mode-btn {
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.person-mode-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.person-mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1220;
+  font-weight: 600;
+}
+
+.person-mode-btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.view-reset-btn {
+  margin-top: 10px;
+  padding: 7px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-reset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.06);
+}
+
+.view-reset-btn:disabled,
+.lock-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.distance-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.distance-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+input:disabled,
+.slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lock-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 40px;
+  padding: 0 12px;
   background: var(--bg-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 10px;
-  margin-bottom: 6px;
-  font-family: "SF Mono", Consolas, "Courier New", monospace;
+  border-radius: 8px;
+  color: var(--text-dim);
   font-size: 12px;
-  color: #7dd3fc;
-  overflow-x: auto;
+  font-family: inherit;
   white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.formula-item p {
-  font-size: 12px;
-  color: var(--text-mute);
-  margin-top: 6px;
-  line-height: 1.6;
+.lock-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-/* ---------- 页脚 ---------- */
+.lock-icon {
+  font-size: 14px;
+}
+
+/* ---------- Footer ---------- */
 .app-footer {
   text-align: center;
   padding: 24px;
@@ -714,107 +642,46 @@ body {
   border-top: 1px solid var(--border);
 }
 
-/* ---------- 响应式：平板 ---------- */
-@media (max-width: 980px) {
-  .app-main {
-    grid-template-columns: 1fr;
-  }
-  .panel-input {
-    position: static;
-  }
+/* ============================================================
+   Interaction states (driven by body/html data attributes,
+   viewport-agnostic)
+   ============================================================ */
+
+/* Subject mode: person / object */
+body[data-mode="object"] #orientationWrap { display: none; }
+body[data-mode="object"] #personHint { display: none; }
+body[data-mode="person"] #subjectSizeGroup { display: none; }
+
+body[data-mode="person"] #imageWidthCard { display: none; }
+body[data-mode="object"] #imageWidthCard { display: block; }
+body[data-mode="person"] #imageHeightCard { display: none; }
+body[data-mode="object"] #imageHeightCard { display: block; }
+body[data-mode="person"] #personImagingCard { display: block; }
+body[data-mode="object"] #personImagingCard { display: none; }
+
+/* Scene views: portrait framing only in person mode,
+   top view only in object mode */
+body[data-mode="person"] #topViewWrap { display: none; }
+body[data-mode="object"] #personSceneWrap { display: none; }
+
+/* Active state: result tabs / bottom nav / language buttons */
+body[data-result-tab="basic"] .tab-btn[data-tab="basic"],
+body[data-result-tab="dof"] .tab-btn[data-tab="dof"],
+body[data-result-tab="bokeh"] .tab-btn[data-tab="bokeh"],
+body[data-mobile-panel="input"] #toggleInputBtn,
+body[data-mobile-panel="result"] #toggleResultBtn,
+html[lang="zh-CN"] .lang-btn[data-lang="zh"],
+html[lang="en"] .lang-btn[data-lang="en"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1220;
+  font-weight: 600;
 }
 
-/* ---------- 响应式：手机 ---------- */
-@media (max-width: 600px) {
-  .mobile-nav {
-    display: flex;
-  }
-  .mobile-subtabs {
-    display: flex;
-  }
-  .app-header {
-    padding: 18px 14px 14px;
-  }
-  .app-header h1 {
-    font-size: 19px;
-  }
-  .subtitle {
-    font-size: 12px;
-  }
-  .header-inner {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .lang-switch {
-    align-self: flex-start;
-  }
-  .lang-btn {
-    padding: 5px 12px;
-    font-size: 12px;
-  }
-
-  .app-main {
-    padding: 16px 12px 40px;
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .panel {
-    padding: 16px;
-  }
-  .panel h2 {
-    font-size: 15px;
-  }
-
-  .result-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-  .card {
-    padding: 10px 12px;
-  }
-  .card-title {
-    font-size: 11px;
-  }
-  .card-value {
-    font-size: 17px;
-  }
-  .card-unit {
-    font-size: 10px;
-  }
-
-  .formula-list {
-    grid-template-columns: 1fr;
-  }
-
-  .scene-row {
-    grid-template-columns: 1fr;
-  }
-
-  .visual-wrap canvas {
-    width: 100%;
-    height: auto;
-  }
-
-  /* 手机端俯视图/侧视图单列堆叠时，缩减其高度（保持原始比例居中），
-     人像构图视图保持全宽以方便拖动操作。 */
-  #sceneTopCanvas,
-  #sceneSideCanvas {
-    width: auto;
-    max-width: 100%;
-    height: 40vh;
-    max-height: 380px;
-    margin: 0 auto;
-    display: block;
-  }
-}
-
-/* 确保结果选项卡面板高度一致 */
-.tab-panel {
-  min-height: 520px;
-}
-
-.tab-panel.active {
-  display: block;
+/* Active state: framing lock button */
+body[data-fov-lock="true"] .lock-btn {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: var(--accent-warm);
+  color: var(--accent-warm);
+  font-weight: 600;
 }

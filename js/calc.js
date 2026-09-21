@@ -78,14 +78,21 @@ const Calc = (function () {
   }
 
   // ---------- Bokeh diameter ----------
-  function bokehDiameter(focal, aperture, focusDist, bgDist, lightSize) {
+  // offset is the out-of-focus point's distance from the focus plane:
+  //   negative = in front of the focus plane (foreground),
+  //   positive = behind the focus plane (background).
+  function bokehDiameter(focal, aperture, focusDist, offset, lightSize) {
     const A = entrancePupil(focal, aperture);
     const m = magnification(focal, focusDist);
 
-    if (bgDist === focusDist) return 0;
+    if (offset === 0) return 0;
 
-    const pointBlur = A * Math.abs(bgDist - focusDist) / bgDist * m;
-    const sizeBlur = (lightSize || 0) * (focal / bgDist) * m;
+    // Absolute distance of the out-of-focus point: u_bg = u + Δ
+    const s = focusDist + offset;
+    if (s <= 0) return 0;
+
+    const pointBlur = A * Math.abs(offset) / s * m;
+    const sizeBlur = (lightSize || 0) * (focal / s) * m;
 
     return pointBlur + sizeBlur;
   }

@@ -29,7 +29,7 @@
     mode: 'person',        // 'person' | 'object'
     subjectWidthRaw: 0.6,  // Object width input (m)
     subjectHeightRaw: 1.7, // Object height input (m)
-    bgDistanceM: 10,       // Background / out-of-focus point distance (m)
+    bgOffsetM: 7,          // Out-of-focus point offset from focus plane (m); negative = foreground, positive = background
     bgLightSizeM: 0,       // Out-of-focus light source physical diameter (m)
     cocPreset: 'normal',   // '' | 'normal' | 'loose' | 'strict'
     cocValue: 0.030,       // Custom CoC (mm)
@@ -136,7 +136,7 @@
     state.dof = Calc.depthOfField(focal, aperture, coc, distance);
     state.bokehMm = Calc.bokehDiameter(
       focal, aperture, distance,
-      state.bgDistanceM * 1000, state.bgLightSizeM * 1000
+      state.bgOffsetM * 1000, state.bgLightSizeM * 1000
     );
     state.bokehBlurLevel = Calc.blurLevel(state.bokehMm, sensor.w).level;
 

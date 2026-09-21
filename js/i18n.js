@@ -32,8 +32,8 @@ const translations = {
     cocStrict: '严格（景深更浅）',
     cocValueLabel: 'CoC 直径 (mm)',
     cocHint: 'CoC 越小 = 对清晰度要求越严格，计算的景深越浅',
-    bgDistance: '背景/焦外点距离 (m)',
-    bgDistanceHint: '背景距离与光源尺寸用于计算焦外光斑直径',
+    bgDistance: '焦外到对焦点距离 (m)',
+    bgDistanceHint: '负值为对焦点前方（前景），正值为对焦点后方（后景）',
     bgLightSize: '焦外光源实际直径 (m)',
     bgLightSizeHint: '0 = 点光源（理想光斑）',
     reset: '重置默认值',
@@ -100,6 +100,10 @@ const translations = {
     removeImage: '移除图片',
     editPose: '调整姿势',
     panImage: '调整图片',
+    personTab: '人物',
+    viewPortrait: '人像构图',
+    viewTop: '俯视图',
+    viewSide: '侧视图',
 
     // Formula
     formulaTitle: '计算公式说明',
@@ -113,7 +117,7 @@ const translations = {
     fDofTitle: '景深',
     fDofDesc: 'H 为超焦距，N 为光圈 f 值，c 为弥散圆直径',
     fBokehTitle: '焦外光斑直径',
-    fBokehDesc1: 'A 为入瞳直径 = f / N，u_bg 为背景距离',
+    fBokehDesc1: 'A 为入瞳直径 = f / N，Δ 为焦外到对焦点距离（负=前景，正=后景）',
     fBokehDesc2: '简化（远景）：B ≈ A × f / (u − f)',
 
     // Units
@@ -189,8 +193,8 @@ const translations = {
     cocStrict: 'Strict (shallower DoF)',
     cocValueLabel: 'CoC Diameter (mm)',
     cocHint: 'Smaller CoC = stricter sharpness, shallower DoF',
-    bgDistance: 'Background / OOF Distance (m)',
-    bgDistanceHint: 'Background distance & light size are used to compute bokeh diameter',
+    bgDistance: 'OOF-to-Focus Offset (m)',
+    bgDistanceHint: 'Negative = in front of focus (foreground), positive = behind (background)',
     bgLightSize: 'OOF Light Source Size (m)',
     bgLightSizeHint: '0 = point light source (ideal bokeh)',
     reset: 'Reset Defaults',
@@ -257,6 +261,10 @@ const translations = {
     removeImage: 'Remove Image',
     editPose: 'Edit Pose',
     panImage: 'Adjust Image',
+    personTab: 'Person',
+    viewPortrait: 'Portrait',
+    viewTop: 'Top View',
+    viewSide: 'Side View',
 
     // Formula
     formulaTitle: 'Formulas',
@@ -270,7 +278,7 @@ const translations = {
     fDofTitle: 'Depth of Field',
     fDofDesc: 'H = hyperfocal, N = f-number, c = circle of confusion',
     fBokehTitle: 'Bokeh Diameter',
-    fBokehDesc1: 'A = entrance pupil = f / N, u_bg = background distance',
+    fBokehDesc1: 'A = entrance pupil = f / N, Δ = OOF-to-focus offset (neg. = foreground, pos. = background)',
     fBokehDesc2: 'Simplified (far background): B ≈ A × f / (u − f)',
 
     // Units

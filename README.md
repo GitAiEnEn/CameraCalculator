@@ -30,14 +30,16 @@ It supports common sensor formats: Medium Format, Full Frame, APS-H, Canon APS-C
 CameraCalculator/
 ├── index.html          # Main page (with data-i18n attributes) / 主页面（含 data-i18n 标记）
 ├── css/
-│   └── style.css       # Stylesheet (dark theme, responsive) / 样式表（深色主题、响应式）
+│   ├── common.css      # Shared styles: theme & component look / 共享样式：主题与组件外观
+│   ├── web.css         # Desktop / tablet layout / 桌面与平板布局
+│   └── mobile.css      # Mobile layout (<=600px) / 手机端布局
 ├── js/
 │   ├── sensors.js      # Sensor / format database (bilingual) / 传感器/画幅数据库（中英双语）
 │   ├── calc.js         # Optical calculation core / 光学计算核心
 │   ├── i18n.js         # Translation dictionary + i18n proxy / 中英文翻译字典与 i18n 代理
 │   └── app.js          # UI binding and rendering (incl. language switching) / UI 绑定与渲染（含语言切换）
 ├── test/
-│   ├── verify.js       # Calculation verification script (18 checks) / 计算验证脚本（18 项测试）
+│   ├── verify.js       # Calculation verification script / 计算验证脚本
 │   └── check_i18n.js   # i18n key coverage check / i18n 键覆盖检查
 └── README.md
 ```
@@ -86,13 +88,14 @@ DF = u(H − f) / (H − u)            (far boundary / 后景深边界)
 ### Bokeh diameter / 焦外光斑直径
 ```
 A = f / N                                    (entrance pupil / 入瞳直径)
-B = A × |u_bg − u| / u_bg × (f / (u − f))    (point light / 点光源)
+B = A × |Δ| / (u + Δ) × (f / (u − f))        (point light / 点光源)
 Far limit / 远景极限：B ≈ A × f / (u − f)
 ```
 
 Where / 其中：
 - `f` focal length / 焦距, `N` aperture f-number / 光圈 f 值, `c` circle of confusion diameter / 弥散圆直径
-- `u` focus distance / 对焦距离, `u_bg` background distance / 背景距离
+- `u` focus distance / 对焦距离
+- `Δ` OOF-to-focus offset / 焦外到对焦点距离：negative = foreground / 负值为前景(对焦点前方), positive = background / 正值为后景(对焦点后方)
 - `h` subject actual size / 被摄物实际尺寸, `h'` image size / 成像尺寸
 
 ## ✅ Verification / 验证
@@ -102,7 +105,7 @@ Run the built-in verification scripts:
 运行内置验证脚本：
 
 ```bash
-# Calculation verification (18 checks) / 计算验证（18 项测试）
+# Calculation verification / 计算验证
 node test/verify.js
 
 # i18n translation coverage check / i18n 翻译覆盖检查

@@ -65,16 +65,22 @@ console.log('\n===== Magnification / image size =====');
 check('50mm @3m magnification', Calc.magnification(50, 3000), 0.01695, 0.0005);
 check('50mm @3m 1.7m person image (mm)', Calc.imageSize(50, 3000, 1700), 28.8, 0.5);
 
-console.log('\n===== Bokeh (50mm f/1.8 focus 3m background 10m) =====');
-// B = D·f·|s−s0| / (s·(s0−f)) = 27.78×50×7000/(10000×2950) = 0.3296mm
-const b = Calc.bokehDiameter(50, 1.8, 3000, 10000, 0);
+console.log('\n===== Bokeh (50mm f/1.8 focus 3m, background +7m) =====');
+// offset Δ = +7000 (behind focus): u_bg = u + Δ = 10000
+// B = D·|Δ|/(u+Δ) · f/(u−f) = 27.78×7000/10000×50/2950 = 0.3296mm
+const b = Calc.bokehDiameter(50, 1.8, 3000, 7000, 0);
 check('Bokeh diameter (mm)', b, 0.3296, 0.01);
-// Far background limit (background → ∞): B = D·f/(s0−f) = 27.78×50/2950 = 0.4708mm
+// Far background limit (Δ → ∞): B = D·f/(u−f) = 27.78×50/2950 = 0.4708mm
 check('Far background limit bokeh (mm)', Calc.bokehDiameter(50, 1.8, 3000, 1e9, 0), 0.4708, 0.01);
 
-console.log('\n===== Bokeh (85mm f/1.4 focus 2m background 10m) =====');
-// B = 60.71×85×8000/(10000×1915) = 2.156mm
-const b2 = Calc.bokehDiameter(85, 1.4, 2000, 10000, 0);
+console.log('\n===== Bokeh (50mm f/1.8 focus 3m, foreground −1m) =====');
+// offset Δ = −1000 (in front of focus): u_bg = 2000
+// B = 27.78×1000/2000×50/2950 = 0.2354mm
+check('Foreground bokeh (mm)', Calc.bokehDiameter(50, 1.8, 3000, -1000, 0), 0.2354, 0.01);
+
+console.log('\n===== Bokeh (85mm f/1.4 focus 2m, background +8m) =====');
+// offset Δ = +8000: u_bg = 10000; B = 60.71×8000/10000×85/1915 = 2.156mm
+const b2 = Calc.bokehDiameter(85, 1.4, 2000, 8000, 0);
 check('Bokeh diameter (mm)', b2, 2.156, 0.05);
 
 console.log('\n===== Entrance pupil =====');
