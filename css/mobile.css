@@ -5,8 +5,8 @@
 
    Interaction:
    - Fixed bottom nav: one-tap switch between Input / Result panels
-   - Input panel: basic params always visible; Person / DoF / Bokeh
-     are collapsible sections
+   - Input panel: basic params always visible; Person / DoF / Bokeh /
+     Environment are collapsible sections
    - All visualization views are collapsible, collapsed by default
    - Panels scroll internally so a collapsed screen fits without scroll
    ============================================================ */
@@ -75,6 +75,21 @@
     display: block;
   }
 
+  /* Basic params are hidden on non-basic tabs, except the Environment
+     tab (EV capability depends on focal length & aperture). */
+  body:not([data-result-tab="basic"]):not([data-result-tab="ev"])
+    .field-group[data-group="common"] {
+    display: none;
+  }
+
+  /* Environment inputs exist only while the Environment tab is active */
+  .collapsible.input-group[data-group="ev"] {
+    display: none;
+  }
+  body[data-result-tab="ev"] .collapsible.input-group[data-group="ev"] {
+    display: block;
+  }
+
   /* Result cards: two columns */
   .result-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -114,6 +129,11 @@
   #sceneSideCanvas {
     max-width: 100%;
     max-height: 45vh;
+    margin: 0 auto;
+  }
+  #evCanvas {
+    max-width: 100%;
+    max-height: 40vh;
     margin: 0 auto;
   }
 

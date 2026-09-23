@@ -6,6 +6,7 @@
  *  - Raw inputs (focal length / aperture / distance / format / orientation / subject ...)
  *  - Camera position, angle, height
  *  - Portrait figure relative position (joints are private to StickMan)
+ *  - Environment (EV) capability inputs & derived values
  *  - All derived intermediate values (FOV, framing, shot type, DoF, bokeh ...)
  *
  * Any change should go through Store.update() / Store.commit():
@@ -38,6 +39,15 @@
 
     fovLock: false,        // Framing lock
     lockFrameM: null,      // Vertical FOV height (m) recorded when locked
+
+    // ---------- Environment (EV) capability inputs ----------
+    evStabStops: 0,        // Image stabilization stops (EV page only)
+    evManualShutter: null, // Manual safe-shutter denominator (1/den s); overrides the computed value
+    evSafeIso: null,       // Safe ISO (defaulted by sensor size; user adjustable)
+    // Custom exposure combos managed from the EV view panel:
+    //   [{ iso, shutter, comp, ev }]
+    //   shutter is the denominator (125 => 1/125s); ev is derived.
+    evCustoms: [],
 
     // ---------- Camera & scene ----------
     camX: 0,
@@ -77,7 +87,12 @@
     entrancePupilMm: 12.5,
     bokehBlurLevel: 4,
     dof: null,
-    bokehMm: 0
+    bokehMm: 0,
+
+    // ---------- Derived: environment (EV) capability ----------
+    evSafeShutterDen: 60,  // Safe handheld shutter denominator (1/den s)
+    evMin: 2,              // Darkest scene EV the camera handles (safe settings)
+    evMax: 16              // Brightest scene EV the camera handles (clamped)
   };
 
   // ---------- Derived computation ----------
@@ -139,6 +154,29 @@
       state.bgOffsetM * 1000, state.bgLightSizeM * 1000
     );
     state.bokehBlurLevel = Calc.blurLevel(state.bokehMm, sensor.w).level;
+
+    // ---------- Environment (EV) capability ----------
+    // Safe handheld shutter: manual override, else min(1/(focal / 2^stops), 1/60s)
+    state.evSafeShutterDen = (isFinite(state.evManualShutter) && state.evManualShutter > 0)
+      ? state.evManualShutter
+      : Calc.safeShutterDen(focal, state.evStabStops);
+    // Safe ISO defaults by sensor size until the user overrides it
+    if (!(isFinite(state.evSafeIso) && state.evSafeIso > 0)) {
+      state.evSafeIso = Calc.defaultSafeIso(sensor);
+    }
+    // Darkest usable scene EV at the current aperture with safe settings
+    state.evMin = Calc.evFromExposure(state.evSafeIso, 1 / state.evSafeShutterDen, aperture);
+    // Brightest usable scene EV (base ISO, fastest typical shutter), clamped to table top
+    state.evMax = Math.min(16, Calc.evFromExposure(100, 1 / 8000, aperture));
+    // Derive each custom combo's EV (kept in place so the marker order stays)
+    state.evCustoms.forEach((c) => {
+      if (isFinite(c.iso) && c.iso > 0 && isFinite(c.shutter) && c.shutter > 0) {
+        c.ev = Calc.evFromExposure(c.iso, 1 / c.shutter, aperture) +
+          (isFinite(c.comp) ? c.comp : 0);
+      } else {
+        c.ev = null;
+      }
+    });
 
     // Camera position (derived from focus distance + camera height when not dragging)
     if (!state.dragging) {

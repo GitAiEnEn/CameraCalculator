@@ -14,6 +14,8 @@ class CameraDistanceView {
     this.ctx = canvas.getContext('2d');
     this.store = null;
     this._dragMode = null;
+    this._grabDx = 0;
+    this._grabDy = 0;
   }
 
   init(store) {
@@ -22,6 +24,20 @@ class CameraDistanceView {
     this.canvas.addEventListener('pointermove', (e) => this._move(e));
     this.canvas.addEventListener('pointerup', () => this._stop());
     this.canvas.addEventListener('pointercancel', () => this._stop());
+    // CSS size changes (rotation / mobile URL bar) rescale hit targets,
+    // so redraw to keep the drawn handles in sync with the display size.
+    window.addEventListener('resize', () => { if (this.store) this.render(); });
+  }
+
+  // Canvas internal px per displayed CSS px. > 1 when CSS scales the canvas
+  // down (typical on mobile: 640px-wide canvas shown at ~300px). Used to keep
+  // the camera / angle handles and their hit areas at a usable on-screen
+  // size at any display scale.
+  uiScale() {
+    const r = this.canvas.getBoundingClientRect();
+    if (!r.width) return 1;
+    const ratio = this.canvas.width / r.width;
+    return isFinite(ratio) ? Math.min(3, Math.max(1, ratio)) : 1;
   }
 
   getPos(e) {
@@ -34,31 +50,55 @@ class CameraDistanceView {
 
   hitTest(pos) {
     const s = this.store.state;
-    if (Math.hypot(pos.x - s.camX, pos.y - s.camY) < 20) return 'camera';
-    const hx = s.camX + Math.cos(s.angleH) * 30;
-    const hy = s.camY + Math.sin(s.angleH) * 30;
-    return Math.hypot(pos.x - hx, pos.y - hy) < 14 ? 'angle' : null;
+    const k = this.uiScale();
+    // Use this view's own angle: the side view draws/measures angleV
+    // (angleH was always used before, so once the two angles diverged the
+    // side-view handle could no longer be grabbed).
+    const ang = this.kind === 'top' ? s.angleH : s.angleV;
+    // Test the smaller target (angle handle) before the camera body.
+    const hx = s.camX + Math.cos(ang) * 30 * k;
+    const hy = s.camY + Math.sin(ang) * 30 * k;
+    if (Math.hypot(pos.x - hx, pos.y - hy) < 16 * k) return 'angle';
+    if (Math.hypot(pos.x - s.camX, pos.y - s.camY) < 20 * k) return 'camera';
+    return null;
   }
 
   _down(e) {
     // Disable interaction while framing lock is active
     if (this.store.state.fovLock) return;
-    this._dragMode = this.hitTest(this.getPos(e));
+    e.preventDefault();
+    const pos = this.getPos(e);
+    this._dragMode = this.hitTest(pos);
     if (this._dragMode) {
-      this.store.state.dragging = true;
+      const s = this.store.state;
+      // Remember the grab offset so the camera does not jump under the
+      // finger/pointer when the drag starts (a finger covers a large area
+      // on mobile and would otherwise hide the camera).
+      this._grabDx = s.camX - pos.x;
+      this._grabDy = s.camY - pos.y;
+      s.dragging = true;
       this.canvas.setPointerCapture(e.pointerId);
+      this.canvas.style.cursor = 'grabbing';
     }
   }
 
   _move(e) {
-    if (!this._dragMode) return;
+    if (!this._dragMode) {
+      // Hover feedback (desktop; harmless on touch)
+      if (!this.store.state.fovLock && e.pointerType !== 'touch') {
+        this.canvas.style.cursor = this.hitTest(this.getPos(e)) ? 'grab' : 'default';
+      }
+      return;
+    }
     const s = this.store.state;
     const pos = this.getPos(e);
 
     if (this._dragMode === 'camera') {
       s.autoOrient = false;
-      s.camX = pos.x;
-      s.camY = pos.y;
+      // Move by the grab offset and keep the camera inside the canvas (a
+      // finger can easily drag past the edge on mobile).
+      s.camX = Math.min(Math.max(pos.x + this._grabDx, 8), this.canvas.width - 8);
+      s.camY = Math.min(Math.max(pos.y + this._grabDy, 8), this.canvas.height - 8);
       // Horizontal distance -> focus distance; vertical position -> camera height
       const newDist = Math.max(0.1, (s.subjectX - s.camX) / s.scale);
       s.heightM = Math.max(0, (s.subjectY - s.camY) / s.scale);
@@ -76,8 +116,13 @@ class CameraDistanceView {
   }
 
   _stop() {
-    this._dragMode = null;
-    this.store.state.dragging = false;
+    if (this._dragMode) {
+      this._dragMode = null;
+      this.store.state.dragging = false;
+      // Re-sync the drawn camera position with the derived distance/height
+      this.store.commit();
+    }
+    this.canvas.style.cursor = 'default';
   }
 
   render() {
@@ -183,11 +228,15 @@ class CameraDistanceView {
 
   drawCamera(angle) {
     const s = this.store.state, ctx = this.ctx;
-    ctx.fillStyle = '#f59e0b'; ctx.fillRect(s.camX - 9, s.camY - 9, 18, 18);
-    ctx.fillStyle = '#e2e8f0'; ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText(i18n.sceneCamera, s.camX - 8, s.camY + 26);
-    const hx = s.camX + Math.cos(angle) * 30, hy = s.camY + Math.sin(angle) * 30;
-    ctx.fillStyle = '#f87171'; ctx.beginPath(); ctx.arc(hx, hy, 7, 0, Math.PI * 2); ctx.fill();
+    const k = this.uiScale();
+    // Scale the camera body / label / angle handle with the display size so
+    // they stay grabbable on mobile where the canvas is CSS-scaled down.
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(s.camX - 9 * k, s.camY - 9 * k, 18 * k, 18 * k);
+    ctx.fillStyle = '#e2e8f0'; ctx.font = Math.round(12 * k) + 'px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(i18n.sceneCamera, s.camX - 8 * k, s.camY + 26 * k);
+    const hx = s.camX + Math.cos(angle) * 30 * k, hy = s.camY + Math.sin(angle) * 30 * k;
+    ctx.fillStyle = '#f87171'; ctx.beginPath(); ctx.arc(hx, hy, 7 * k, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
   }
 

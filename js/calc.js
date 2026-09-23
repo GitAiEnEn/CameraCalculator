@@ -140,6 +140,71 @@ const Calc = (function () {
     return 'dofConclusionTwoRows';
   }
 
+  // ---------- DoF level (total-DoF magnitude classification) ----------
+  // Returns an i18n key for the depth-of-field magnitude card:
+  //   extreme / shallow / moderate / wide / huge.
+  function dofLevel(totalMm) {
+    const met = totalMm / 1000;
+    if (!isFinite(met)) return 'dofLevelHuge';
+    if (met < 0.05) return 'dofLevelExtreme';
+    if (met < 0.3) return 'dofLevelShallow';
+    if (met < 1.5) return 'dofLevelModerate';
+    if (met < 5) return 'dofLevelWide';
+    return 'dofLevelHuge';
+  }
+
+  // ---------- DoF sharp subject (portrait experience classification) ----------
+  // Returns an i18n key describing what stays acceptably sharp at this DoF:
+  //   one eye / eyes / face / half body / full body / multiple rows sharp.
+  function dofSharpRange(totalMm) {
+    const met = totalMm / 1000;
+    if (!isFinite(met)) return 'dofSharpMultiRows';
+    if (met < 0.01) return 'dofSharpOneEye';
+    if (met < 0.05) return 'dofSharpEyes';
+    if (met < 0.3) return 'dofSharpFace';
+    if (met < 1.5) return 'dofSharpHalfBody';
+    if (met < 5) return 'dofSharpFullBody';
+    return 'dofSharpMultiRows';
+  }
+
+  // ---------- Safe handheld shutter (static portrait) ----------
+  // No stabilization: min(1/focal, 1/60s).
+  // With N stops of stabilization: min(1/(focal / 2^N), 1/60s).
+  // Returns the shutter DENOMINATOR (e.g. 125 => 1/125s).
+  function safeShutterDen(focal, stabStops) {
+    const f = focal || 50;
+    const k = Math.pow(2, Math.max(0, stabStops || 0));
+    return Math.max(f / k, 60);
+  }
+
+  // ---------- Default safe ISO by sensor size ----------
+  // Full frame tolerates ~ISO 6400 for a clean static portrait; smaller
+  // formats scale by 1/crop^2. Snapped down to the standard ISO ladder.
+  function defaultSafeIso(sensor) {
+    if (!sensor) return 6400;
+    const diag = Math.hypot(sensor.w, sensor.h);
+    const crop = 43.27 / diag;
+    const raw = 6400 / (crop * crop);
+    const ladder = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
+    let iso = ladder[0];
+    ladder.forEach((v) => { if (v <= raw) iso = v; });
+    return iso;
+  }
+
+  // ---------- Exposure value ----------
+  // EV (scene brightness) correctly exposed by ISO / shutter / aperture:
+  //   EV = log2(N^2 / t) - log2(ISO / 100)
+  function evFromExposure(iso, shutterSec, aperture) {
+    return Math.log2((aperture * aperture) / shutterSec) - Math.log2(iso / 100);
+  }
+
+  // ---------- Scene bucket for an EV ----------
+  // The reference table covers EV -4..16 in integer buckets.
+  // Returns an index 0..20 into i18n.evSceneShort / evSceneDesc.
+  function evSceneIndex(ev) {
+    return Math.round(clamp(ev, -4, 16)) + 4;
+  }
+
   return {
     clamp,
     logFromSlider,
@@ -153,6 +218,12 @@ const Calc = (function () {
     bokehDiameter,
     blurLevel,
     classifyPersonShot,
-    dofConclusion
+    dofConclusion,
+    dofLevel,
+    dofSharpRange,
+    safeShutterDen,
+    defaultSafeIso,
+    evFromExposure,
+    evSceneIndex
   };
 })();

@@ -32,6 +32,13 @@
     bgOffset: $('bgOffset'), bgLightSize: $('bgLightSize'),
     resetBtn: $('resetBtn'),
 
+    // Environment (EV) inputs
+    evStabStops: $('evStabStops'), evSafeIso: $('evSafeIso'),
+    evManualShutter: $('evManualShutter'),
+
+    // EV combo manager (in the view panel)
+    evComboList: $('evComboList'), evAddComboBtn: $('evAddComboBtn'),
+
     rEquivFocal: $('rEquivFocal'), rFov: $('rFov'),
     rMagnification: $('rMagnification'), rFovWidth: $('rFovWidth'), rFovHeight: $('rFovHeight'),
     rImageWidth: $('rImageWidth'), rImageHeight: $('rImageHeight'),
@@ -39,13 +46,19 @@
 
     rDofTotal: $('rDofTotal'), rDofNear: $('rDofNear'), rDofFar: $('rDofFar'),
     rDofRange: $('rDofRange'), rHyperfocal: $('rHyperfocal'), rEntrancePupil: $('rEntrancePupil'),
-    dofConclusion: $('dofConclusion'),
+    rDofLevel: $('rDofLevel'), rDofLevelUnit: $('rDofLevelUnit'), rDofSharp: $('rDofSharp'),
 
     rBokehSensor: $('rBokehSensor'), rBokehRatio: $('rBokehRatio'),
     rBokehPixels: $('rBokehPixels'), rBokehBlur: $('rBokehBlur'),
 
+    // Environment (EV) results
+    rEvMin: $('rEvMin'), rEvMinScene: $('rEvMinScene'),
+    rEvSafeShutter: $('rEvSafeShutter'), rEvSafeIsoUnit: $('rEvSafeIso'),
+    evSuitableText: $('evSuitableText'),
+    evTable: $('evTable'),
+
     personCanvas: $('personCanvas'), sceneTopCanvas: $('sceneTopCanvas'), sceneSideCanvas: $('sceneSideCanvas'),
-    dofCanvas: $('dofCanvas'), bokehCanvas: $('bokehCanvas'),
+    dofCanvas: $('dofCanvas'), bokehCanvas: $('bokehCanvas'), evCanvas: $('evCanvas'),
 
     resetPortraitBtn: $('resetPortraitBtn'), resetTopBtn: $('resetTopBtn'),
     resetSideBtn: $('resetSideBtn'), resetDofBtn: $('resetDofBtn'),
@@ -74,6 +87,8 @@
   let syncingCoC = false;
   let activeResultTab = 'basic';
   let activeMobilePanel = 'result';
+  // Whether the user typed a custom safe ISO (stop auto-following sensor).
+  let evSafeIsoDirty = false;
 
   // ---------- View instances ----------
   const portraitView = new PortraitView(el.personCanvas);
@@ -81,6 +96,7 @@
   const sideView = new CameraDistanceView(el.sceneSideCanvas, 'side', true);
   const fieldView = new FieldVisualizationView(el.dofCanvas);
   const bokehView = new BokehPreview(el.bokehCanvas);
+  const evView = new EvView(el.evCanvas);
 
   // ---------- Formatting helpers (display only) ----------
   function fmt(num, digits) {
@@ -153,6 +169,24 @@
     });
   }
 
+  // Environment (EV) inputs -> data model
+  function applyEvInputs() {
+    const safeIso = parseFloat(el.evSafeIso.value);
+    const manualShutter = parseFloat(el.evManualShutter.value);
+
+    store.update({
+      evStabStops: parseInt(el.evStabStops.value, 10) || 0,
+      evManualShutter: isFinite(manualShutter) && manualShutter > 0 ? manualShutter : null,
+      evSafeIso: isFinite(safeIso) && safeIso > 0 ? safeIso : null
+    });
+
+    // If the safe-ISO field was left empty it falls back to the sensor
+    // default; mirror that back into the input.
+    if (!isFinite(safeIso) || safeIso <= 0) {
+      el.evSafeIso.value = state.evSafeIso;
+    }
+  }
+
   // The bokeh offset is relative to the focus plane, so it stays constant when
   // the focus distance changes; no syncing is needed.
   function onDistanceChange() {
@@ -201,13 +235,19 @@
     el.rDofRange.textContent = `${fmtDistance(s.dof.near)} ~ ${fmtDistance(s.dof.far)}`;
     el.rHyperfocal.textContent = fmtDistance(s.dof.hyperfocal);
     el.rEntrancePupil.textContent = fmt(s.entrancePupilMm, 2);
-    el.dofConclusion.textContent = i18n[Calc.dofConclusion(s.dof.total)];
+
+    // DoF conclusion cards: magnitude level + sharp subject (portrait experience)
+    el.rDofLevel.textContent = i18n[Calc.dofLevel(s.dof.total)];
+    if (el.rDofLevelUnit) el.rDofLevelUnit.textContent = i18n.dofLevelUnit;
+    el.rDofSharp.textContent = i18n[Calc.dofSharpRange(s.dof.total)];
 
     const bokehPx = s.bokehMm / pixelPitch(s.sensor);
     el.rBokehSensor.textContent = fmt(s.bokehMm, 3);
     el.rBokehRatio.textContent = ((s.bokehMm / s.sensor.w) * 100).toFixed(2);
     el.rBokehPixels.textContent = bokehPx >= 1000 ? bokehPx.toFixed(0) : bokehPx.toFixed(1);
     el.rBokehBlur.textContent = `${s.bokehBlurLevel} · ${i18n.blurLevels[s.bokehBlurLevel - 1]}`;
+
+    renderEvCards();
 
     // Write back to input controls (data model -> inputs).
     // Skip the numeric inputs that the user is actively editing, otherwise the
@@ -234,18 +274,179 @@
     el.resetSideBtn.disabled = s.fovLock;
   }
 
+  // ---------- Render: environment (EV) capability cards ----------
+  function renderEvCards() {
+    const s = state;
+
+    // Darkest usable scene
+    const minIdx = Calc.evSceneIndex(s.evMin);
+    el.rEvMin.textContent = 'EV ' + s.evMin.toFixed(1);
+    el.rEvMinScene.textContent = i18n.evSceneShort[minIdx];
+
+    // Safe shutter + safe ISO reference line
+    const den = Math.round(s.evSafeShutterDen);
+    const manual = isFinite(s.evManualShutter) && s.evManualShutter > 0;
+    el.rEvSafeShutter.textContent = '1/' + den + ' s';
+    el.rEvSafeIsoUnit.textContent =
+      (manual ? i18n.evManualTag + ' · ' : '') + 'ISO ' + s.evSafeIso + ' · f/' + s.aperture;
+
+    // Conclusion sentence: from the darkest usable scene to the table top
+    el.evSuitableText.textContent = i18n.evSuitableText(
+      s.evMin.toFixed(1), i18n.evSceneDesc[minIdx], i18n.evSceneDesc[20]
+    );
+  }
+
   function renderViews() {
     portraitView.render();
     topView.render();
     sideView.render();
     fieldView.render();
     bokehView.render();
+    evView.render();
+  }
+
+  // ---------- EV reference table ----------
+  function buildEvTable() {
+    const table = el.evTable;
+    if (!table) return;
+    table.innerHTML = '';
+    const thead = document.createElement('thead');
+    const hrow = document.createElement('tr');
+    ['evTableEv', 'evTableScene', 'evTableDesc'].forEach((key) => {
+      const th = document.createElement('th');
+      th.textContent = i18n[key];
+      hrow.appendChild(th);
+    });
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    const scenes = i18n.evSceneShort, descs = i18n.evSceneDesc;
+    const minIdx = Calc.evSceneIndex(state.evMin);
+    for (let i = 0; i < scenes.length; i++) {
+      const row = document.createElement('tr');
+      const ev = i - 4;
+      // Highlight the scenes the camera can already handle
+      if (i >= minIdx) row.className = 'ok';
+
+      const tdEv = document.createElement('td');
+      tdEv.className = 'ev-num';
+      tdEv.textContent = 'EV ' + ev;
+      const tdName = document.createElement('td');
+      tdName.className = 'ev-name';
+      tdName.textContent = scenes[i];
+      const tdDesc = document.createElement('td');
+      tdDesc.className = 'ev-desc';
+      tdDesc.textContent = descs[i];
+
+      row.appendChild(tdEv); row.appendChild(tdName); row.appendChild(tdDesc);
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+  }
+
+  // ---------- EV custom exposure combos (dynamic rows in the view panel) ----------
+  // Rows are rebuilt on structural changes (add/remove) and updated in place
+  // while typing, so the focused input never loses focus.
+  let evComboRows = [];
+
+  function evCell(row, inputType, value, placeholder, min, max, step, onInput) {
+    const cell = document.createElement('div');
+    cell.className = 'ev-combo-cell';
+    const input = document.createElement('input');
+    input.type = inputType;
+    input.placeholder = placeholder;
+    if (value != null && isFinite(value)) input.value = value;
+    if (min != null) input.min = min;
+    if (max != null) input.max = max;
+    if (step != null) input.step = step;
+    input.addEventListener('input', () => onInput(input));
+    input.addEventListener('change', () => onInput(input));
+    cell.appendChild(input);
+    row.appendChild(cell);
+    return input;
+  }
+
+  function rebuildEvComboRows() {
+    el.evComboList.innerHTML = '';
+    evComboRows = [];
+
+    state.evCustoms.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'ev-combo-row';
+
+      // Color dot matching the marker on the EV bar
+      const dot = document.createElement('span');
+      dot.className = 'ev-combo-dot';
+      dot.style.background = evView.colorAt(i);
+      row.appendChild(dot);
+
+      const readBack = () => {
+        const iso = parseFloat(isoInput.value);
+        const sh = parseFloat(shutterInput.value);
+        const comp = parseFloat(compInput.value);
+        c.iso = isFinite(iso) ? iso : null;
+        c.shutter = isFinite(sh) ? sh : null;
+        c.comp = isFinite(comp) ? comp : 0;
+        store.commit(); // recompute each combo's EV + repaint markers
+      };
+
+      const isoInput = evCell(row, 'number', c.iso, 'ISO', 50, 409600, 50, readBack);
+      const shutterInput = evCell(row, 'number', c.shutter, '1/x', 1, 8000, 1, readBack);
+      const compInput = evCell(row, 'number', c.comp, '±EV', -5, 5, 0.5, readBack);
+
+      // Derived EV + scene readout
+      const result = document.createElement('span');
+      result.className = 'ev-combo-result';
+      row.appendChild(result);
+
+      // Delete button
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'ev-combo-del';
+      del.textContent = '✕';
+      del.title = i18n.viewReset;
+      del.addEventListener('click', () => {
+        state.evCustoms.splice(i, 1);
+        store.commit();
+        rebuildEvComboRows();
+      });
+      row.appendChild(del);
+
+      el.evComboList.appendChild(row);
+      evComboRows.push({ result });
+    });
+
+    updateEvComboResults();
+  }
+
+  function updateEvComboResults() {
+    state.evCustoms.forEach((c, i) => {
+      const r = evComboRows[i];
+      if (!r) return;
+      if (c.ev != null) {
+        const idx = Calc.evSceneIndex(c.ev);
+        r.result.textContent = i18n.evComboSceneAt(c.ev.toFixed(1), i18n.evSceneShort[idx]);
+      } else {
+        r.result.textContent = i18n.evCustomEmpty;
+      }
+    });
+  }
+
+  function setupEvCombos() {
+    el.evAddComboBtn.addEventListener('click', () => {
+      state.evCustoms.push({ iso: 800, shutter: 125, comp: 0, ev: null });
+      store.commit();
+      rebuildEvComboRows();
+    });
+    rebuildEvComboRows();
   }
 
   // ---------- Tab / group / panel switching: set intent, CSS reacts ----------
   function switchTab(tab) {
     activeResultTab = tab;
     writeBodyState();
+    buildEvTable();
   }
 
   function setupMobileToggle() {
@@ -335,6 +536,11 @@
       const sensor = SENSOR_FORMATS[parseInt(el.sensor.value, 10)];
       if (sensor) applyPresetToCoC(sensor);
       applyRawInputs();
+      // Safe ISO follows the sensor size unless the user typed a custom value
+      if (!evSafeIsoDirty && sensor) {
+        el.evSafeIso.value = Calc.defaultSafeIso(sensor);
+        applyEvInputs();
+      }
     });
 
     [el.subjectWidth, el.subjectHeight, el.bgOffset, el.bgLightSize].forEach((n) => {
@@ -356,6 +562,12 @@
     el.subjectType.addEventListener('change', () => { writeBodyState(); applyRawInputs(); });
     el.orientation.addEventListener('change', applyRawInputs);
     el.eyeHeight.addEventListener('input', applyRawInputs);
+
+    // Environment (EV) inputs
+    el.evStabStops.addEventListener('change', applyEvInputs);
+    el.evSafeIso.addEventListener('input', () => { evSafeIsoDirty = true; applyEvInputs(); });
+    el.evManualShutter.addEventListener('input', applyEvInputs);
+    el.evManualShutter.addEventListener('change', applyEvInputs);
 
     document.querySelectorAll('.tab-btn').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab'))));
     document.querySelectorAll('.lang-btn').forEach((btn) => btn.addEventListener('click', () => switchLang(btn.getAttribute('data-lang'))));
@@ -412,8 +624,16 @@
       el.eyeHeight.value = DEFAULTS.eyeHeight;
       state.fovLock = false;
       state.lockFrameM = null;
+      // Environment inputs back to defaults (safe ISO re-follows the sensor)
+      el.evStabStops.value = '0';
+      el.evSafeIso.value = '';
+      el.evManualShutter.value = '';
+      evSafeIsoDirty = false;
+      state.evCustoms = [];
       writeBodyState();
       applyRawInputs();
+      applyEvInputs();
+      rebuildEvComboRows();
     });
   }
 
@@ -421,6 +641,8 @@
     setLang(lang);
     applyTranslations();
     rebuildSensorSelect();
+    buildEvTable();
+    rebuildEvComboRows();
     applyRawInputs();
   }
 
@@ -434,6 +656,10 @@
   store.listen(() => {
     renderResultCards();
     renderViews();
+    buildEvTable();
+    // Combo rows: update derived readouts in place (structural changes are
+    // handled by add/delete themselves to preserve input focus).
+    updateEvComboResults();
   });
 
   function init() {
@@ -444,6 +670,7 @@
     sideView.init(store);
     fieldView.init(store);
     bokehView.init(store);
+    evView.init(store);
 
     bindEvents();
     applyTranslations();
@@ -460,8 +687,11 @@
 
     if (sensor) applyPresetToCoC(sensor);
     applyRawInputs();
+    applyEvInputs();
+    setupEvCombos();
     populateTicks();
     setupMobileToggle();
+    buildEvTable();
   }
 
   if (document.readyState === 'loading') {

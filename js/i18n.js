@@ -41,6 +41,78 @@ const translations = {
     tabBasic: '基本',
     tabDof: '景深',
     tabBokeh: '焦外',
+    tabEv: '环境',
+
+    evSuitableTitle: '环境适应结论',
+    evViewVisual: '环境适应视图',
+    evTableTitle: 'EV 典型环境参考表',
+    evTableEv: 'EV',
+    evTableScene: '典型环境',
+    evTableDesc: '描述',
+
+    // Environment (EV) inputs
+    evStabStops: '防抖等级 (档)',
+    evStabOff: '无防抖',
+    evManualShutter: '手动安全快门 (1/x s)',
+    evManualTag: '手动',
+    evStabHint: '安全快门 = 1/(焦距 ÷ 2^防抖档数)，且不低于 1/60 s；手动填写后优先使用手动值',
+    evSafeIsoLabel: '安全 ISO',
+    evSafeIsoHint: '按画幅自动给出默认值，可手动修改',
+    evCustomGroup: '自定义曝光组合',
+    evCustomIso: 'ISO',
+    evCustomShutter: '快门 (1/x s)',
+    evCompensation: '环境补偿 (EV)',
+    evCustomHint: '填写 ISO 与快门后，视图中会用青色标记显示该组合可应对的最暗环境',
+    evCustomEmpty: '未填写',
+
+    // EV view combo manager
+    evComboLabel: '组合',
+    evCombosTitle: '曝光组合（可添加多个，标记显示在上方视图）',
+    evAddCombo: '+ 添加曝光组合',
+    evComboSceneAt: (ev, scene) => `EV ${ev} · ${scene}`,
+
+    // Environment (EV) cards
+    evMinCard: '最暗可拍环境',
+    evSafeShutterCard: '安全快门',
+    evCustomCard: '自定义组合可拍',
+    evCameraLabel: '相机',
+    evDarkestLabel: '最暗可拍',
+    evCustomLabel: '自定义',
+    evSuitableText: (minEv, minScene, maxScene) =>
+      `当前设置可应对 EV ${minEv} 及更亮的环境：${minScene} ~ ${maxScene}`,
+    evCustomText: (ev, scene) => `自定义组合可应对 EV ${ev} 起：${scene}`,
+
+    // EV typical scene reference (EV -4 .. 16)
+    evSceneShort: [
+      '深空星空', '无月郊外', '新月野外', '星光微光', '满月野外',
+      '郊区深夜', '城市街巷', '昏暗小巷', '夜商业街', '夜间广场',
+      '较亮餐厅', '居家灯光', '明亮室内', '明亮商场', '阴天阴影',
+      '完全阴天', '薄云阴天', '黄金时刻', '晴天树荫', '正午日光',
+      '烈日雪地'
+    ],
+    evSceneDesc: [
+      '没有月亮、远离城市光污染的深空星空，伸手几乎完全看不见',
+      '无月郊外深夜，只有微弱银河辉光，勉强分辨物体轮廓',
+      '新月夜晚野外，远处零星微光，辨认物体很吃力',
+      '郊外，只有星光+微弱环境天光',
+      '满月，开阔野外空地，可以徒步，阴影柔和',
+      '城市郊区深夜，微弱路灯，远处建筑光晕',
+      '城市深夜街巷 / 烛光环境，人脸需要补光才拍得干净',
+      '昏暗小巷、公园深夜，少量街灯；室内极暗包间',
+      '夜晚商业街、低亮度橱窗；很暗的小酒馆',
+      '夜间广场、路边店铺灯光；普通酒吧',
+      '较亮的餐厅、暗光漫展场馆、晚会舞台观众席',
+      '普通居家室内灯光，灯光一般的展厅',
+      '明亮居家、普通会议室、商场通道',
+      '明亮商场、灯光充足漫展内场、大型展厅',
+      '阴天阴影里，建筑物背阴处（室外）',
+      '全天完全阴天、厚乌云笼罩户外',
+      '薄云阴天，没有直射阳光',
+      '清晨/傍晚黄金时刻，柔和顺光',
+      '晴天树荫底下，太阳被遮挡',
+      '晴天开阔地，正午日光（摄影常用基准日光）',
+      '烈日暴晒、雪地/白沙滩正午，强光反射'
+    ],
 
     // Result panel
     resultTitle: '计算结果',
@@ -78,6 +150,23 @@ const translations = {
     dofRange: '清晰范围',
     hyperfocal: '超焦距',
     entrancePupil: '入瞳直径',
+
+    // DoF conclusion cards
+    dofLevel: '景深等级',
+    dofLevelUnit: '极浅 / 较浅 / 适中 / 宽 / 极大',
+    dofLevelExtreme: '极浅',
+    dofLevelShallow: '较浅',
+    dofLevelModerate: '适中',
+    dofLevelWide: '宽',
+    dofLevelHuge: '极大',
+    dofSharpRangeTitle: '清晰对象',
+    dofSharpUnit: '按人像拍摄经验估算',
+    dofSharpOneEye: '单眼清晰',
+    dofSharpEyes: '人眼清晰',
+    dofSharpFace: '面部清晰',
+    dofSharpHalfBody: '半身清晰',
+    dofSharpFullBody: '全身清晰',
+    dofSharpMultiRows: '多排人物清晰',
 
     bokehTitle: '焦外光斑 (Bokeh)',
     bokehSensor: '焦外光斑直径（传感器上）',
@@ -202,6 +291,78 @@ const translations = {
     tabBasic: 'Basic',
     tabDof: 'Depth of Field',
     tabBokeh: 'Bokeh',
+    tabEv: 'Environment',
+
+    evSuitableTitle: 'Environment Suitability',
+    evViewVisual: 'Environment Capability View',
+    evTableTitle: 'EV Typical Scene Reference',
+    evTableEv: 'EV',
+    evTableScene: 'Typical Scene',
+    evTableDesc: 'Description',
+
+    // Environment (EV) inputs
+    evStabStops: 'Stabilization (stops)',
+    evStabOff: 'No stabilization',
+    evManualShutter: 'Manual Safe Shutter (1/x s)',
+    evManualTag: 'Manual',
+    evStabHint: 'Safe shutter = 1/(focal ÷ 2^stops), never slower than 1/60 s; manual entry takes precedence',
+    evSafeIsoLabel: 'Safe ISO',
+    evSafeIsoHint: 'Defaults by sensor size; adjustable',
+    evCustomGroup: 'Custom Exposure Settings',
+    evCustomIso: 'ISO',
+    evCustomShutter: 'Shutter (1/x s)',
+    evCompensation: 'Exposure Compensation (EV)',
+    evCustomHint: 'With ISO and shutter filled in, a cyan marker shows the darkest scene that combo can handle',
+    evCustomEmpty: 'not filled',
+
+    // EV view combo manager
+    evComboLabel: 'Combo',
+    evCombosTitle: 'Exposure Combos (add multiple; markers shown on the view above)',
+    evAddCombo: '+ Add Exposure Combo',
+    evComboSceneAt: (ev, scene) => `EV ${ev} · ${scene}`,
+
+    // Environment (EV) cards
+    evMinCard: 'Darkest Usable Scene',
+    evSafeShutterCard: 'Safe Shutter',
+    evCustomCard: 'Custom Settings Scene',
+    evCameraLabel: 'Camera',
+    evDarkestLabel: 'darkest OK',
+    evCustomLabel: 'Custom',
+    evSuitableText: (minEv, minScene, maxScene) =>
+      `Current setup handles EV ${minEv} and brighter: ${minScene} ~ ${maxScene}`,
+    evCustomText: (ev, scene) => `Custom settings handle EV ${ev} and brighter: ${scene}`,
+
+    // EV typical scene reference (EV -4 .. 16)
+    evSceneShort: [
+      'Deep sky', 'Moonless rural', 'New-moon wild', 'Starlight', 'Full moon',
+      'Suburb night', 'City alley', 'Dim lane', 'Night street', 'Night plaza',
+      'Bright diner', 'Home indoor', 'Bright room', 'Bright mall', 'Cloudy shade',
+      'Overcast', 'Thin cloud', 'Golden hour', 'Sunny shade', 'Noon sun',
+      'Snow noon'
+    ],
+    evSceneDesc: [
+      'Moonless deep-sky night far from city light pollution; can barely see your hand',
+      'Moonless suburban late night, faint Milky Way glow; object outlines barely visible',
+      'New-moon countryside with a few distant lights; recognizing objects is hard',
+      'Countryside with only starlight and faint skyglow',
+      'Full moon over an open field; walking is possible, soft shadows',
+      'Suburban late night, faint street lamps, distant building glow',
+      'Deep-night city alleys / candlelight; faces need fill light',
+      'Dim lanes and late-night parks with few lamps; very dark private rooms',
+      'Night shopping streets with dim shop windows; dark taverns',
+      'Night plazas with roadside shop lighting; ordinary bars',
+      'Brighter restaurants, dim convention halls, gala audience seats',
+      'Typical home interior lighting, average-lit exhibition halls',
+      'Bright homes, ordinary meeting rooms, mall corridors',
+      'Bright malls, well-lit convention floors, large exhibition halls',
+      'In shade on a cloudy day, building shadow outdoors',
+      'Fully overcast all day, thick clouds outdoors',
+      'Thin clouds, no direct sunlight',
+      'Sunrise/sunset golden hour, soft frontal light',
+      'Under tree shade on a sunny day, sun blocked',
+      'Open sunny ground at noon (standard photographic daylight)',
+      'Blazing sun, snow / white beach at noon, strong reflections'
+    ],
 
     // Result panel
     resultTitle: 'Results',
@@ -239,6 +400,23 @@ const translations = {
     dofRange: 'Sharp Range',
     hyperfocal: 'Hyperfocal Distance',
     entrancePupil: 'Entrance Pupil',
+
+    // DoF conclusion cards
+    dofLevel: 'DoF Level',
+    dofLevelUnit: 'Extreme / Shallow / Moderate / Wide / Huge',
+    dofLevelExtreme: 'Extreme',
+    dofLevelShallow: 'Shallow',
+    dofLevelModerate: 'Moderate',
+    dofLevelWide: 'Wide',
+    dofLevelHuge: 'Huge',
+    dofSharpRangeTitle: 'Sharp Subject',
+    dofSharpUnit: 'Estimated from portrait experience',
+    dofSharpOneEye: 'Single eye sharp',
+    dofSharpEyes: 'Eyes sharp',
+    dofSharpFace: 'Face sharp',
+    dofSharpHalfBody: 'Half body sharp',
+    dofSharpFullBody: 'Full body sharp',
+    dofSharpMultiRows: 'Multiple rows sharp',
 
     bokehTitle: 'Bokeh',
     bokehSensor: 'Bokeh Diameter (on sensor)',

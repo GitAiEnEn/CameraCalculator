@@ -2,7 +2,7 @@
    web.css
    Desktop / tablet layout (>= 601px). Restores the original desktop
    layout (before the mobile redesign):
-     - Person / DoF / Bokeh fields follow the active result tab
+     - Person / DoF / Bokeh / Ev fields follow the active result tab
      - Visualization views (portrait / top / side / DoF / bokeh) are
        always expanded
    The collapsible (checkbox) behavior applies to mobile only.
@@ -25,13 +25,14 @@
     display: flex;
   }
 
-  /* ---------- Input panel: restore original "groups follow the
-     active result tab". Basic params (sensor / focal / aperture /
-     focus distance) are shown only on the "Basic" result tab. */
+  /* ---------- Input panel: "groups follow the active result tab".
+     Basic params (sensor / focal / aperture / focus distance) are shown
+     on the Basic tab, and also on the Environment tab (the EV capability
+     directly depends on focal length and aperture). */
   .field-group[data-group="common"] {
     display: block;
   }
-  body:not([data-result-tab="basic"]) .field-group[data-group="common"] {
+  body:not([data-result-tab="basic"]):not([data-result-tab="ev"]) .field-group[data-group="common"] {
     display: none;
   }
 
@@ -60,6 +61,10 @@
     display: block;
   }
   body[data-result-tab="bokeh"] .collapsible.input-group[data-group="bokeh"] {
+    display: block;
+  }
+  /* Environment inputs exist only while the Environment tab is active */
+  body[data-result-tab="ev"] .collapsible.input-group[data-group="ev"] {
     display: block;
   }
 
@@ -93,6 +98,52 @@
   .collapsible.view-details > .collapsible-body {
     display: block;
     padding: 0;
+  }
+
+  /* ---------- EV reference table: keep the collapsible behavior
+     (collapsed by default) even on desktop - it is a long lookup
+     table, not a visualization. Uses the #tab-ev id so these rules
+     override the generic .view-details expansion above. ---------- */
+  .collapsible.view-details.ev-table-view {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 0 0 12px;
+    overflow: hidden;
+  }
+  .collapsible.view-details.ev-table-view > .collapsible-toggle {
+    display: block;
+  }
+  .collapsible.view-details.ev-table-view > .collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin: 0;
+    padding: 11px 14px;
+    border-left: none;
+    cursor: pointer;
+    user-select: none;
+  }
+  .collapsible.view-details.ev-table-view > .collapsible-header::after {
+    content: "▾";
+    color: var(--text-mute);
+    font-size: 12px;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+  .collapsible.view-details.ev-table-view > .collapsible-toggle:checked ~ .collapsible-header::after {
+    transform: rotate(180deg);
+  }
+  .collapsible.view-details.ev-table-view > .collapsible-body {
+    display: none;
+    padding: 0 14px 14px;
+  }
+  .collapsible.view-details.ev-table-view > .collapsible-toggle:checked ~ .collapsible-body {
+    display: block;
   }
 
   /* Scene views: two columns on desktop

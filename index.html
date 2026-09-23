@@ -164,6 +164,42 @@
       </div>
     </div>
 
+    <!-- Environment (EV): collapsible section, shown only on the EV tab -->
+    <div class="collapsible input-group" data-group="ev">
+      <input type="checkbox" id="acc-ev" class="collapsible-toggle">
+      <label for="acc-ev" class="collapsible-header"><span data-i18n="tabEv">环境</span></label>
+      <div class="collapsible-body">
+        <div class="field-group" data-group="ev">
+          <div class="row-2">
+            <div class="subj-col">
+              <label for="evStabStops" data-i18n="evStabStops">防抖等级 (档)</label>
+              <select id="evStabStops">
+                <option value="0" selected data-i18n="evStabOff">无防抖</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+              </select>
+            </div>
+            <div class="subj-col">
+              <label for="evManualShutter" data-i18n="evManualShutter">手动安全快门 (1/x s)</label>
+              <input type="number" id="evManualShutter" placeholder="—" min="1" max="8000" step="1">
+            </div>
+          </div>
+          <div class="hint" data-i18n="evStabHint">安全快门 = 1/(焦距 ÷ 2^防抖档数)，且不低于 1/60 s；手动填写后优先使用手动值</div>
+        </div>
+        <div class="field-group" data-group="ev">
+          <label for="evSafeIso" data-i18n="evSafeIsoLabel">安全 ISO</label>
+          <input type="number" id="evSafeIso" value="6400" min="50" max="409600" step="50">
+          <div class="hint" data-i18n="evSafeIsoHint">按画幅自动给出默认值，可手动修改</div>
+        </div>
+      </div>
+    </div>
+
     <button id="resetBtn" class="btn-secondary" data-i18n="reset">重置默认值</button>
   </section>
 
@@ -175,6 +211,7 @@
       <button class="tab-btn active" data-tab="basic" data-i18n="tabBasic">基本</button>
       <button class="tab-btn" data-tab="dof" data-i18n="tabDof">景深</button>
       <button class="tab-btn" data-tab="bokeh" data-i18n="tabBokeh">焦外</button>
+      <button class="tab-btn" data-tab="ev" data-i18n="tabEv">环境</button>
     </div>
 
     <!-- Basic -->
@@ -302,6 +339,16 @@
           <div class="card-value" id="rEntrancePupil">—</div>
           <div class="card-unit" data-i18n="unitMm">mm</div>
         </div>
+        <div class="card" id="dofLevelCard">
+          <div class="card-title" data-i18n="dofLevel">景深等级</div>
+          <div class="card-value" id="rDofLevel">—</div>
+          <div class="card-unit" id="rDofLevelUnit">—</div>
+        </div>
+        <div class="card" id="dofSharpCard">
+          <div class="card-title" data-i18n="dofSharpRangeTitle">清晰对象</div>
+          <div class="card-value" id="rDofSharp">—</div>
+          <div class="card-unit" data-i18n="dofSharpUnit">按人像拍摄经验估算</div>
+        </div>
       </div>
 
       <div class="collapsible view-details">
@@ -313,11 +360,6 @@
             <button class="view-reset-btn" id="resetDofBtn" type="button" data-i18n="viewReset">重置</button>
           </div>
         </div>
-      </div>
-
-      <div class="conclusion-box">
-        <h3 class="section-title" data-i18n="dofConclusionLabel">景深结论</h3>
-        <p id="dofConclusion">—</p>
       </div>
     </div>
 
@@ -356,6 +398,53 @@
         </div>
       </div>
     </div>
+
+    <!-- Environment (EV) -->
+    <div class="tab-panel" id="tab-ev">
+      <div class="result-grid">
+        <div class="card highlight">
+          <div class="card-title" data-i18n="evMinCard">最暗可拍环境</div>
+          <div class="card-value" id="rEvMin">—</div>
+          <div class="card-unit" id="rEvMinScene">—</div>
+        </div>
+        <div class="card">
+          <div class="card-title" data-i18n="evSafeShutterCard">安全快门</div>
+          <div class="card-value" id="rEvSafeShutter">—</div>
+          <div class="card-unit" id="rEvSafeIso">—</div>
+        </div>
+      </div>
+
+      <div class="collapsible view-details" id="evViewWrap">
+        <input type="checkbox" id="acc-ev-view" class="collapsible-toggle">
+        <label for="acc-ev-view" class="collapsible-header"><span data-i18n="evViewVisual">环境适应视图</span></label>
+        <div class="collapsible-body">
+          <div class="visual-wrap">
+            <canvas id="evCanvas" width="900" height="280"></canvas>
+          </div>
+
+          <div class="ev-combos">
+            <div class="ev-combos-title" data-i18n="evCombosTitle">曝光组合</div>
+            <div class="ev-combo-list" id="evComboList"></div>
+            <button class="ev-add-btn" id="evAddComboBtn" type="button" data-i18n="evAddCombo">+ 添加曝光组合</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="conclusion-box">
+        <h3 class="section-title" data-i18n="evSuitableTitle">环境适应结论</h3>
+        <p id="evSuitableText">—</p>
+      </div>
+
+      <div class="collapsible view-details ev-table-view">
+        <input type="checkbox" id="acc-ev-table" class="collapsible-toggle">
+        <label for="acc-ev-table" class="collapsible-header"><span data-i18n="evTableTitle">EV 典型环境参考表</span></label>
+        <div class="collapsible-body">
+          <div class="ev-table-wrap">
+            <table class="ev-table" id="evTable"></table>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   </div>
@@ -373,6 +462,7 @@
 <script src="js/FieldVisualizationView.js"></script>
 <script src="js/BokehPreview.js"></script>
 <script src="js/CameraDistanceView.js"></script>
+<script src="js/EvView.js"></script>
 <script src="js/stickMan.js"></script>
 <script src="js/PortraitView.js"></script>
 <script src="js/app.js"></script>
