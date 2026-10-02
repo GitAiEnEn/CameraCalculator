@@ -451,13 +451,16 @@
 
   function setupMobileToggle() {
     const inputBtn = $('toggleInputBtn'), resultBtn = $('toggleResultBtn');
+    const main = document.querySelector('.app-main');
     inputBtn.addEventListener('click', () => {
       activeMobilePanel = 'input';
       writeBodyState();
+      main.scrollTop = 0; // each panel starts from the top on mobile
     });
     resultBtn.addEventListener('click', () => {
       activeMobilePanel = 'result';
       writeBodyState();
+      main.scrollTop = 0;
     });
   }
 
